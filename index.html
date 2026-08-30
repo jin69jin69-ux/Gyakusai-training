@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>逆算トレーニング</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1A1D24">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="逆算トレ">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  :root{
+    --bg:#EFEDE7; --card:#FFFFFF; --ink:#22252B; --ink-soft:#6B6E76; --line:#DCD8CC;
+    --board:#1A1D24; --amber:#FF9F1C; --teal:#3EC1B3; --danger:#E1553D; --purple:#8E7CC3;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; -webkit-font-smoothing:antialiased; }
+  .app{ max-width:440px; margin:0 auto; padding:28px 18px 60px; }
+  .eyebrow{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.14em; color:var(--ink-soft); text-transform:uppercase; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .eyebrow .link{ color:var(--purple); cursor:pointer; text-decoration:underline; letter-spacing:0; text-transform:none; font-family:'Zen Kaku Gothic New', sans-serif; font-size:12px; }
+  h1{ font-size:26px; font-weight:900; margin:0 0 6px; letter-spacing:.01em; }
+  .sub{ font-size:13.5px; color:var(--ink-soft); margin:0 0 26px; line-height:1.6; }
+
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px 20px; margin-bottom:14px; }
+  .q-label{ font-size:15px; font-weight:700; margin-bottom:14px; line-height:1.5; }
+  .q-hint{ font-size:12.5px; color:var(--ink-soft); margin:-8px 0 16px; }
+
+  input[type="text"], input[type="time"]{
+    width:100%; font-family:'Zen Kaku Gothic New', sans-serif; font-size:16px;
+    padding:12px 14px; border-radius:9px; border:1px solid var(--line); background:#FBFAF7; color:var(--ink);
+  }
+  input[type="time"]{ font-family:'JetBrains Mono', monospace; font-weight:700; letter-spacing:.03em; }
+  label.field-label{ display:block; font-size:12px; color:var(--ink-soft); margin-bottom:6px; }
+
+  .stepper{ background:#FBFAF7; border:1px solid var(--line); border-radius:9px; padding:14px; }
+  .stepper-row{ display:flex; align-items:center; justify-content:center; gap:10px; }
+  .stepper-row button{ width:38px; height:38px; border-radius:9px; border:none; background:var(--ink); color:#fff; font-size:18px; font-weight:700; cursor:pointer; }
+  .stepper-row button:active{ transform:scale(0.94); }
+  .min-input{
+    width:88px; text-align:center; font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:700;
+    padding:8px 4px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--ink);
+  }
+  .min-suffix{ font-size:12px; color:var(--ink-soft); }
+  .stepper-caption{ text-align:center; font-size:10.5px; color:var(--ink-soft); margin-top:10px; letter-spacing:.02em; }
+
+  .btn-row{ display:flex; gap:10px; margin-top:18px; }
+  .btn{ flex:1; font-family:'Zen Kaku Gothic New', sans-serif; font-size:14.5px; font-weight:700; padding:13px 10px; border-radius:9px; border:none; cursor:pointer; }
+  .btn-primary{ background:var(--ink); color:#fff; }
+  .btn-primary:disabled{ background:#C9C6BC; cursor:not-allowed; }
+  .btn-ghost{ background:transparent; color:var(--ink-soft); border:1px solid var(--line); flex:0 0 auto; padding:13px 16px; }
+
+  .progress{ display:flex; gap:6px; margin-bottom:18px; }
+  .progress i{ flex:1; height:4px; border-radius:2px; background:var(--line); }
+  .progress i.done{ background:var(--teal); }
+  .progress i.now{ background:var(--amber); }
+
+  /* Mode select */
+  .mode-card{ display:flex; align-items:center; gap:14px; padding:20px; border-radius:14px; border:1px solid var(--line); background:var(--card); margin-bottom:12px; cursor:pointer; text-align:left; width:100%; }
+  .mode-card .icon{ width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; }
+  .mode-card.practice .icon{ background:#FFE9CC; }
+  .mode-card.sim .icon{ background:#E4E0F4; }
+  .mode-card .txt b{ display:block; font-size:15px; margin-bottom:3px; }
+  .mode-card .txt span{ font-size:12px; color:var(--ink-soft); line-height:1.5; }
+
+  .friend-link{ display:block; text-align:center; font-size:13px; color:var(--ink-soft); text-decoration:underline; margin-top:6px; cursor:pointer; background:none; border:none; width:100%; padding:10px; }
+
+  /* Friends */
+  .friend-row{ display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line); }
+  .friend-row:last-child{ border-bottom:none; }
+  .friend-row .name{ flex:1; font-size:14px; }
+  .friend-row button{ border:none; background:none; color:var(--danger); font-size:13px; cursor:pointer; }
+  .add-friend-row{ display:flex; gap:8px; margin-top:14px; }
+  .add-friend-row input{ flex:1; }
+  .add-friend-row button{ flex:0 0 auto; padding:0 16px; border-radius:9px; border:none; background:var(--ink); color:#fff; font-weight:700; cursor:pointer; }
+  .empty-note{ font-size:12.5px; color:var(--ink-soft); text-align:center; padding:14px 0; }
+
+  /* Scenario card */
+  .scenario-tag{ display:inline-block; font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:#fff; background:var(--purple); padding:4px 9px; border-radius:6px; margin-bottom:12px; }
+  .scenario-text{ font-size:16px; font-weight:700; line-height:1.6; margin-bottom:6px; }
+  .scenario-time{ font-family:'JetBrains Mono', monospace; font-size:28px; font-weight:700; color:var(--purple); margin:10px 0 4px; }
+  .solved-count{ font-size:11.5px; color:var(--ink-soft); }
+
+  /* Board */
+  .board{ background:var(--board); border-radius:16px; padding:20px 16px 16px; color:#EDEEF0; }
+  .board-head{ display:flex; justify-content:space-between; align-items:center; padding:0 4px 14px; border-bottom:1px solid #333744; margin-bottom:8px; }
+  .board-head .title{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.14em; color:#9A9DA6; text-transform:uppercase; }
+  .board-head .now-wrap{ display:flex; align-items:center; gap:10px; }
+  .board-head .now{ font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--teal); font-weight:700; }
+  .sound-toggle{ width:30px; height:30px; border-radius:50%; border:1px solid #3A3E49; background:#22262f; color:#EDEEF0; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .sound-toggle.off{ color:#5C6270; }
+  .bgm-hint{ font-size:12px; color:var(--ink-soft); line-height:1.6; margin-top:10px; }
+  .bgm-status{ font-size:12.5px; color:var(--teal); margin-top:10px; }
+
+  .row{ display:flex; align-items:center; gap:12px; padding:14px 6px; border-bottom:1px solid #2A2E38; }
+  .row:last-child{ border-bottom:none; }
+  .row .time{ font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:700; color:var(--amber); min-width:74px; letter-spacing:.02em; }
+  .row .label{ flex:1; font-size:14px; line-height:1.4; }
+  .row .label .sub{ display:block; font-size:11.5px; color:#8C8F99; margin:2px 0 0; }
+  .row.next{ background:#22262f; border-radius:8px; }
+  .row.next .time{ animation:pulse 1.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce){ .row.next .time{ animation:none; } }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+  .row.overdue .time{ color:var(--danger); }
+  .row.manual-done{ opacity:.55; }
+  .row.manual-done .time{ color:#5C6270; text-decoration:line-through; }
+  .row.manual-done .label{ color:#6B6F79; }
+  .check-btn{ width:34px; height:34px; border-radius:50%; border:1.5px solid #454956; background:transparent; color:#454956; font-size:16px; cursor:pointer; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+  .check-btn.checked{ background:var(--teal); border-color:var(--teal); color:#12151a; }
+  .board-foot{ margin-top:14px; padding-top:12px; border-top:1px solid #333744; font-size:12.5px; color:#9A9DA6; line-height:1.6; }
+  .result-actions{ display:flex; gap:10px; margin-top:16px; }
+
+  /* Room */
+  .room-card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .room-canvas{
+    position:relative; width:100%; height:0; padding-bottom:73.3%; border-radius:12px; overflow:hidden;
+    border:1px solid var(--line); background:#EFEDE7;
+  }
+  .room-diorama{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .room-mascot{ position:absolute; left:50%; bottom:3%; width:19%; transform:translateX(-50%); filter:drop-shadow(0 6px 4px rgba(0,0,0,0.15)); z-index:5; }
+  .room-mascot .mascot-avatar{ width:100%; height:auto; animation:none; }
+  .room-placed{
+    position:absolute; font-size:28px; line-height:1; cursor:grab; user-select:none; touch-action:none;
+    transform:translate(-50%,-50%); filter:drop-shadow(0 3px 2px rgba(0,0,0,0.2)); z-index:4;
+  }
+  .room-placed.dragging{ cursor:grabbing; filter:drop-shadow(0 6px 5px rgba(0,0,0,0.26)); z-index:20; }
+  .room-hint{ text-align:center; font-size:11.5px; color:var(--ink-soft); margin-top:8px; }
+  .room-tray-label{ font-size:12px; font-weight:700; margin:16px 0 8px; color:var(--ink-soft); }
+  .room-tray{ display:flex; flex-wrap:wrap; gap:9px; }
+  .room-item{
+    width:38px; height:38px; border-radius:10px; background:#fff; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:19px; cursor:pointer;
+  }
+  .room-item.locked{ opacity:.32; filter:grayscale(1); background:#F2F0EA; cursor:default; }
+  .room-progress-note{ text-align:center; font-size:12.5px; color:var(--ink-soft); margin-top:12px; }
+
+  /* Gallery */
+  .gallery-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:9px; }
+  .gallery-item{
+    aspect-ratio:1; border-radius:11px; background:var(--card); border:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:4px;
+  }
+  .gallery-item .emoji{ font-size:22px; }
+  .gallery-item .label{ font-size:8.5px; color:var(--ink-soft); text-align:center; line-height:1.2; }
+  .gallery-item.locked{ opacity:.4; }
+  .gallery-item.locked .emoji{ filter:grayscale(1); }
+  .gallery-summary{ text-align:center; font-size:12.5px; color:var(--ink-soft); margin-bottom:14px; }
+
+
+  /* Mascot */
+  .mascot-bar{ display:flex; align-items:flex-end; gap:12px; margin-bottom:20px; }
+  .mascot-avatar{ width:64px; height:auto; flex:0 0 auto; animation:mascotFloat 3.2s ease-in-out infinite; display:block; }
+  @media (prefers-reduced-motion: reduce){ .mascot-avatar{ animation:none; } }
+  @keyframes mascotFloat{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
+  .mascot-avatar.celebrate{ animation:mascotBounce .6s ease; }
+  @media (prefers-reduced-motion: reduce){ .mascot-avatar.celebrate{ animation:none; } }
+  @keyframes mascotBounce{ 0%{ transform:scale(1); } 30%{ transform:scale(1.18) rotate(-4deg); } 60%{ transform:scale(0.95) rotate(3deg); } 100%{ transform:scale(1) rotate(0); } }
+  .speech-bubble{
+    position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px 14px 14px 3px;
+    padding:10px 14px; font-size:12.5px; line-height:1.6; flex:1; min-height:1.6em;
+    transition:opacity .2s ease;
+  }
+  .speech-bubble b{ display:block; font-size:11px; color:var(--purple); margin-bottom:2px; }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="eyebrow"><span id="eyebrowText">TIME TRAINING</span><span class="link" id="homeLink" style="display:none;">← ホーム</span></div>
+  <h1 id="mainTitle">逆算トレーニング</h1>
+  <p class="sub" id="mainSub">予定を1つ入れると、質問に答えるだけで「何時に何を始めればいいか」を自動で逆算します。逆算の型を体に覚えさせるのが目的です。</p>
+  <div class="mascot-bar">
+    <svg class="mascot-avatar" id="avatar-usagi" viewBox="0 0 100 134" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="20" cy="100" rx="15" ry="17" fill="#FFD24D"/>
+      <ellipse cx="80" cy="100" rx="15" ry="17" fill="#FFD24D"/>
+      <circle cx="14" cy="111" r="9.5" fill="#FDF8EC" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="86" cy="111" r="9.5" fill="#FDF8EC" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="50" cy="100" rx="35" ry="31" fill="#FFD24D" stroke="#2A241C" stroke-width="2.4"/>
+      <path d="M33 76 Q41 86 50 77 Q59 86 67 76" fill="none" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="50" cy="83" r="3" fill="#FDF8EC" stroke="#2A241C" stroke-width="1.7"/>
+      <ellipse cx="50" cy="53" rx="31" ry="30" fill="#FDF8EC" stroke="#2A241C" stroke-width="2.4"/>
+      <ellipse cx="39" cy="17" rx="8" ry="16" fill="#FDF8EC" stroke="#2A241C" stroke-width="2.4" transform="rotate(-6 39 17)"/>
+      <ellipse cx="61" cy="17" rx="8" ry="16" fill="#FDF8EC" stroke="#2A241C" stroke-width="2.4" transform="rotate(6 61 17)"/>
+      <circle cx="41" cy="57" r="2.7" fill="#2A241C"/>
+      <circle cx="59" cy="57" r="2.7" fill="#2A241C"/>
+      <circle cx="50" cy="62" r="2.6" fill="#2A241C"/>
+    </svg>
+    <svg class="mascot-avatar" id="avatar-buta" viewBox="0 0 100 134" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+      <ellipse cx="20" cy="100" rx="15" ry="17" fill="#3E7CB8"/>
+      <ellipse cx="80" cy="100" rx="15" ry="17" fill="#3E7CB8"/>
+      <circle cx="14" cy="111" r="9.5" fill="#F5A98C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="86" cy="111" r="9.5" fill="#F5A98C" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="50" cy="100" rx="35" ry="31" fill="#3E7CB8" stroke="#2A241C" stroke-width="2.4"/>
+      <circle cx="50" cy="46" r="32" fill="#F5A98C" stroke="#2A241C" stroke-width="2.2"/>
+      <path d="M30 20 L38 4 L45 20 Z" fill="#F5A98C" stroke="#2A241C" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M70 20 L62 4 L55 20 Z" fill="#F5A98C" stroke="#2A241C" stroke-width="2.2" stroke-linejoin="round"/>
+      <circle cx="40" cy="45" r="2.8" fill="#2A241C"/>
+      <circle cx="60" cy="45" r="2.8" fill="#2A241C"/>
+      <ellipse cx="50" cy="56" rx="10" ry="8" fill="#EE8C71" stroke="#2A241C" stroke-width="2"/>
+      <ellipse cx="46" cy="56" rx="1.6" ry="2.4" fill="#2A241C"/>
+      <ellipse cx="54" cy="56" rx="1.6" ry="2.4" fill="#2A241C"/>
+      <path d="M42 68 Q50 74 58 68" fill="none" stroke="#2A241C" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <svg class="mascot-avatar" id="avatar-kuma" viewBox="0 0 100 134" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+      <circle cx="26" cy="20" r="11" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="74" cy="20" r="11" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="20" cy="100" rx="15" ry="17" fill="#F0821F"/>
+      <ellipse cx="80" cy="100" rx="15" ry="17" fill="#F0821F"/>
+      <circle cx="14" cy="111" r="9.5" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="86" cy="111" r="9.5" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="50" cy="100" rx="35" ry="31" fill="#F0821F" stroke="#2A241C" stroke-width="2.4"/>
+      <circle cx="50" cy="48" r="32" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="40" cy="47" r="2.8" fill="#1B140D"/>
+      <circle cx="60" cy="47" r="2.8" fill="#1B140D"/>
+      <ellipse cx="50" cy="57" rx="4.5" ry="3.5" fill="#1B140D"/>
+      <path d="M50 60 L50 64" stroke="#1B140D" stroke-width="1.6"/>
+      <path d="M44 66 Q50 70 56 66" fill="none" stroke="#1B140D" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <svg class="mascot-avatar" id="avatar-kuma2" viewBox="0 0 100 134" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+      <circle cx="26" cy="20" r="11" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="74" cy="20" r="11" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="20" cy="100" rx="15" ry="17" fill="#F0821F"/>
+      <ellipse cx="80" cy="100" rx="15" ry="17" fill="#F0821F"/>
+      <circle cx="14" cy="111" r="9.5" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="86" cy="111" r="9.5" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="50" cy="100" rx="35" ry="31" fill="#F0821F" stroke="#2A241C" stroke-width="2.4"/>
+      <circle cx="50" cy="48" r="32" fill="#8B5E3C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="40" cy="47" r="2.8" fill="#1B140D"/>
+      <circle cx="60" cy="47" r="2.8" fill="#1B140D"/>
+      <ellipse cx="50" cy="57" rx="4.5" ry="3.5" fill="#1B140D"/>
+      <g fill="#8A5A2E" opacity="0.7">
+        <circle cx="31" cy="53" r="1"/><circle cx="35" cy="57" r="1"/><circle cx="33" cy="60" r="1"/>
+        <circle cx="69" cy="53" r="1"/><circle cx="65" cy="57" r="1"/><circle cx="67" cy="60" r="1"/>
+      </g>
+      <path d="M42 66 Q50 72 58 66" fill="none" stroke="#1B140D" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <svg class="mascot-avatar" id="avatar-neko" viewBox="0 0 100 134" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+      <path d="M30 30 L24 12 L40 22 Z" fill="#F0A05C" stroke="#2A241C" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M70 30 L76 12 L60 22 Z" fill="#F0A05C" stroke="#2A241C" stroke-width="2.2" stroke-linejoin="round"/>
+      <ellipse cx="20" cy="100" rx="15" ry="17" fill="#FFCF3F"/>
+      <ellipse cx="80" cy="100" rx="15" ry="17" fill="#FFCF3F"/>
+      <circle cx="14" cy="111" r="9.5" fill="#F0A05C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="86" cy="111" r="9.5" fill="#F0A05C" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="50" cy="100" rx="35" ry="31" fill="#FFCF3F" stroke="#2A241C" stroke-width="2.4"/>
+      <circle cx="50" cy="48" r="32" fill="#F0A05C" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="40" cy="47" r="2.8" fill="#2A241C"/>
+      <circle cx="60" cy="47" r="2.8" fill="#2A241C"/>
+      <ellipse cx="50" cy="56" rx="3" ry="2.4" fill="#F5C08A" stroke="#2A241C" stroke-width="1.3"/>
+      <path d="M45 60 Q50 63 55 60" fill="none" stroke="#2A241C" stroke-width="1.6" stroke-linecap="round"/>
+      <g stroke="#2A241C" stroke-width="1.2" stroke-linecap="round">
+        <line x1="10" y1="52" x2="26" y2="55"/><line x1="10" y1="58" x2="26" y2="58"/>
+        <line x1="90" y1="52" x2="74" y2="55"/><line x1="90" y1="58" x2="74" y2="58"/>
+      </g>
+    </svg>
+    <svg class="mascot-avatar" id="avatar-inu" viewBox="0 0 100 134" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+      <path d="M32 30 Q10 34 16 62 Q26 56 36 42 Z" fill="#8C5A34" stroke="#2A241C" stroke-width="2.2"/>
+      <path d="M68 30 Q90 34 84 62 Q74 56 64 42 Z" fill="#8C5A34" stroke="#2A241C" stroke-width="2.2"/>
+      <path d="M86,88 Q98,85 97,99 Q92,97 86,95 Z" fill="#8C5A34" stroke="#2A241C" stroke-width="2.2" stroke-linejoin="round"/>
+      <ellipse cx="20" cy="100" rx="15" ry="17" fill="#8C5A34"/>
+      <ellipse cx="80" cy="100" rx="15" ry="17" fill="#8C5A34"/>
+      <circle cx="14" cy="111" r="9.5" fill="#B98249" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="86" cy="111" r="9.5" fill="#B98249" stroke="#2A241C" stroke-width="2.2"/>
+      <ellipse cx="50" cy="100" rx="35" ry="31" fill="#8C5A34" stroke="#2A241C" stroke-width="2.4"/>
+      <circle cx="50" cy="48" r="32" fill="#B98249" stroke="#2A241C" stroke-width="2.2"/>
+      <circle cx="40" cy="47" r="2.8" fill="#2A241C"/>
+      <circle cx="60" cy="47" r="2.8" fill="#2A241C"/>
+      <ellipse cx="50" cy="57" rx="4" ry="3.2" fill="#2A241C"/>
+      <path d="M50 60 L50 63" stroke="#2A241C" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M44 67 Q50 71 56 67" fill="none" stroke="#2A241C" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <div class="speech-bubble" id="mascotSpeech"><b id="mascotName">うさぎ</b>よろしくね！</div>
+  </div>
+  <div class="progress" id="progress"></div>
+  <div id="wizard"></div>
+</div>
+<div id="ytPlayer" style="position:fixed;bottom:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;"></div>
+
+<script>
+  const state = {
+    screen: 'home',
+    eventName: '', goalTime: '',
+    prepMin: 15, travelMin: 20, bufferMin: 5,
+    soundOn: true, doneFlags: [false,false,false], alerted: new Set(),
+    friends: [],
+    sim: null,
+    solvedCount: 0,
+    bgmUrl: '',
+    bgmPlaying: false,
+    mascotId: 'usagi',
+    unlockedDecor: [],
+    roomLayout: {},
+  };
+
+  const decorPool = [
+    {id:'plant', emoji:'🪴', name:'観葉植物'},
+    {id:'cactus', emoji:'🌵', name:'サボテン'},
+    {id:'flower', emoji:'🌸', name:'桜の枝'},
+    {id:'sunflower', emoji:'🌻', name:'ひまわり'},
+    {id:'clover', emoji:'🍀', name:'クローバー'},
+    {id:'frame', emoji:'🖼️', name:'絵画'},
+    {id:'sofa', emoji:'🛋️', name:'ソファ'},
+    {id:'chair', emoji:'🪑', name:'椅子'},
+    {id:'bed', emoji:'🛏️', name:'ベッド'},
+    {id:'tv', emoji:'📺', name:'テレビ'},
+    {id:'mirror', emoji:'🪞', name:'鏡'},
+    {id:'basket', emoji:'🧺', name:'かご'},
+    {id:'clock', emoji:'🕰️', name:'置き時計'},
+    {id:'window', emoji:'🪟', name:'窓'},
+    {id:'lamp', emoji:'💡', name:'ランプ'},
+    {id:'candle', emoji:'🕯️', name:'キャンドル'},
+    {id:'sparkle', emoji:'✨', name:'きらきら'},
+    {id:'firework', emoji:'🎆', name:'花火'},
+    {id:'star', emoji:'⭐', name:'星の飾り'},
+    {id:'balloon', emoji:'🎈', name:'風船'},
+    {id:'books', emoji:'📚', name:'本棚'},
+    {id:'easel', emoji:'🎨', name:'イーゼル'},
+    {id:'kite', emoji:'🪁', name:'凧'},
+    {id:'ball', emoji:'⚽', name:'ボール'},
+    {id:'game', emoji:'🎮', name:'ゲーム機'},
+    {id:'teddy', emoji:'🧸', name:'ぬいぐるみ'},
+    {id:'rainbow', emoji:'🌈', name:'にじの飾り'},
+    {id:'cake', emoji:'🍰', name:'ケーキ'},
+    {id:'cookie', emoji:'🍪', name:'クッキー'},
+    {id:'tree', emoji:'🎄', name:'ツリー'},
+    {id:'apple', emoji:'🍎', name:'りんご'},
+    {id:'banana', emoji:'🍌', name:'バナナ'},
+    {id:'grape', emoji:'🍇', name:'ぶどう'},
+    {id:'strawberry', emoji:'🍓', name:'いちご'},
+    {id:'peach', emoji:'🍑', name:'もも'},
+    {id:'orange', emoji:'🍊', name:'みかん'},
+    {id:'lemon', emoji:'🍋', name:'レモン'},
+    {id:'watermelon', emoji:'🍉', name:'すいか'},
+    {id:'bread', emoji:'🍞', name:'パン'},
+    {id:'croissant', emoji:'🥐', name:'クロワッサン'},
+    {id:'donut', emoji:'🍩', name:'ドーナツ'},
+    {id:'icecream', emoji:'🍦', name:'アイスクリーム'},
+    {id:'chocolate', emoji:'🍫', name:'チョコレート'},
+    {id:'candy', emoji:'🍭', name:'キャンディ'},
+    {id:'coffee', emoji:'☕', name:'コーヒー'},
+    {id:'tea', emoji:'🍵', name:'お茶'},
+    {id:'teapot', emoji:'🫖', name:'ティーポット'},
+    {id:'sake', emoji:'🍶', name:'とっくり'},
+    {id:'cupcake', emoji:'🧁', name:'カップケーキ'},
+    {id:'milk', emoji:'🥛', name:'ミルク'},
+    {id:'icecube', emoji:'🧊', name:'こおり'},
+    {id:'honey', emoji:'🍯', name:'はちみつ'},
+    {id:'spoon', emoji:'🥄', name:'スプーン'},
+    {id:'plate', emoji:'🍽️', name:'お皿'},
+    {id:'seasoning', emoji:'🧂', name:'調味料'},
+    {id:'bigtree', emoji:'🌳', name:'大きな木'},
+    {id:'firtree', emoji:'🌲', name:'もみの木'},
+    {id:'mapleleaf', emoji:'🍁', name:'もみじ'},
+    {id:'mushroom', emoji:'🍄', name:'きのこ'},
+    {id:'shell', emoji:'🐚', name:'貝がら'},
+    {id:'wave', emoji:'🌊', name:'なみ'},
+    {id:'mountain', emoji:'⛰️', name:'やま'},
+    {id:'snowmountain', emoji:'🏔️', name:'雪山'},
+    {id:'sunrise', emoji:'🌅', name:'朝日'},
+    {id:'moon', emoji:'🌙', name:'つき'},
+    {id:'sun', emoji:'☀️', name:'たいよう'},
+    {id:'cloud', emoji:'☁️', name:'くも'},
+    {id:'pumpkin', emoji:'🎃', name:'かぼちゃ'},
+    {id:'ghost', emoji:'👻', name:'おばけ'},
+    {id:'santa', emoji:'🎅', name:'サンタ'},
+    {id:'snowman', emoji:'⛄', name:'ゆきだるま'},
+    {id:'socks', emoji:'🧦', name:'くつした'},
+    {id:'gift', emoji:'🎁', name:'プレゼント'},
+    {id:'dango', emoji:'🥮', name:'おだんご'},
+    {id:'koinobori', emoji:'🎏', name:'こいのぼり'},
+    {id:'furin', emoji:'🎐', name:'ふうりん'},
+    {id:'firecracker', emoji:'🧨', name:'爆竹'},
+    {id:'lantern', emoji:'🪔', name:'ランタン'},
+    {id:'sparkler', emoji:'🎇', name:'せんこう花火'},
+    {id:'basketball', emoji:'🏀', name:'バスケットボール'},
+    {id:'baseball', emoji:'⚾', name:'やきゅうボール'},
+    {id:'pingpong', emoji:'🏓', name:'卓球ラケット'},
+    {id:'bowling', emoji:'🎳', name:'ボウリング'},
+    {id:'puzzle', emoji:'🧩', name:'パズル'},
+    {id:'darts', emoji:'🎯', name:'ダーツ'},
+    {id:'yoyo', emoji:'🪀', name:'ヨーヨー'},
+    {id:'fishing', emoji:'🎣', name:'つりざお'},
+    {id:'skate', emoji:'⛸️', name:'スケートぐつ'},
+    {id:'bike', emoji:'🚲', name:'じてんしゃ'},
+    {id:'bunnydoll', emoji:'🐰', name:'うさぎのぬいぐるみ'},
+    {id:'koaladoll', emoji:'🐨', name:'コアラのぬいぐるみ'},
+    {id:'foxdoll', emoji:'🦊', name:'きつねのぬいぐるみ'},
+    {id:'pandadoll', emoji:'🐼', name:'パンダのぬいぐるみ'},
+    {id:'liondoll', emoji:'🦁', name:'ライオンのぬいぐるみ'},
+    {id:'frogdoll', emoji:'🐸', name:'かえるのぬいぐるみ'},
+    {id:'chickdoll', emoji:'🐤', name:'ひよこのぬいぐるみ'},
+    {id:'butterfly', emoji:'🦋', name:'ちょうちょの飾り'},
+    {id:'bee', emoji:'🐝', name:'はちの飾り'},
+    {id:'ladybug', emoji:'🐞', name:'てんとう虫の飾り'},
+    {id:'guitar', emoji:'🎸', name:'ギター'},
+    {id:'piano', emoji:'🎹', name:'ピアノ'},
+    {id:'drum', emoji:'🥁', name:'ドラム'},
+    {id:'trumpet', emoji:'🎺', name:'トランペット'},
+    {id:'violin', emoji:'🎻', name:'バイオリン'},
+    {id:'headphones', emoji:'🎧', name:'ヘッドホン'},
+    {id:'pencil', emoji:'✏️', name:'えんぴつ'},
+    {id:'notebook', emoji:'📔', name:'ノート'},
+    {id:'pen', emoji:'🖊️', name:'ペン'},
+    {id:'clip', emoji:'📎', name:'クリップ'},
+    {id:'pin', emoji:'📌', name:'ピン'},
+    {id:'folder', emoji:'🗂️', name:'ファイル'},
+    {id:'bookmark', emoji:'🔖', name:'しおり'},
+    {id:'schoolbag', emoji:'🎒', name:'ランドセル'},
+    {id:'bath', emoji:'🛁', name:'おふろ'},
+    {id:'bottle', emoji:'🧴', name:'ボトル'},
+    {id:'soap', emoji:'🧼', name:'せっけん'},
+    {id:'toothbrush', emoji:'🪥', name:'はブラシ'},
+    {id:'thread', emoji:'🧵', name:'いと'},
+    {id:'yarn', emoji:'🧶', name:'けいと'},
+    {id:'hat', emoji:'👒', name:'ぼうし'},
+  ];
+
+  const wizard = document.getElementById('wizard');
+  const progressEl = document.getElementById('progress');
+  const eyebrowText = document.getElementById('eyebrowText');
+  const homeLink = document.getElementById('homeLink');
+  const mainTitle = document.getElementById('mainTitle');
+  const mainSub = document.getElementById('mainSub');
+  let tickTimer = null;
+
+  homeLink.addEventListener('click', ()=>{ state.screen = 'home'; render(); });
+
+  // --- persistence: friends list & solved count (personal, not shared) ---
+  async function loadPersisted(){
+    try{
+      const f = await window.storage.get('friends-list');
+      if(f && f.value) state.friends = JSON.parse(f.value);
+    }catch(e){ state.friends = []; }
+    try{
+      const c = await window.storage.get('sim-solved-count');
+      if(c && c.value) state.solvedCount = JSON.parse(c.value);
+    }catch(e){ state.solvedCount = 0; }
+    try{
+      const b = await window.storage.get('bgm-url');
+      if(b && b.value) state.bgmUrl = JSON.parse(b.value);
+    }catch(e){ state.bgmUrl = ''; }
+    try{
+      const mi = await window.storage.get('mascot-id');
+      if(mi && mi.value && mascotData[mi.value]) state.mascotId = mi.value;
+    }catch(e){}
+    try{
+      const d = await window.storage.get('unlocked-decor');
+      if(d && d.value) state.unlockedDecor = JSON.parse(d.value);
+    }catch(e){ state.unlockedDecor = []; }
+    try{
+      const rl = await window.storage.get('room-layout');
+      if(rl && rl.value) state.roomLayout = JSON.parse(rl.value);
+    }catch(e){ state.roomLayout = {}; }
+    render();
+  }
+  async function saveUnlockedDecor(){
+    try{ await window.storage.set('unlocked-decor', JSON.stringify(state.unlockedDecor)); }catch(e){}
+  }
+  async function saveRoomLayout(){
+    try{ await window.storage.set('room-layout', JSON.stringify(state.roomLayout)); }catch(e){}
+  }
+  async function grantDecoration(){
+    const remaining = decorPool.filter(d => !state.unlockedDecor.includes(d.id));
+    if(remaining.length === 0) return null;
+    const d = remaining[Math.floor(Math.random()*remaining.length)];
+    state.unlockedDecor.push(d.id);
+    await saveUnlockedDecor();
+    return d;
+  }
+  async function saveBgmUrl(){
+    try{ await window.storage.set('bgm-url', JSON.stringify(state.bgmUrl)); }catch(e){}
+  }
+  async function saveFriends(){
+    try{ await window.storage.set('friends-list', JSON.stringify(state.friends)); }catch(e){}
+  }
+  async function saveSolvedCount(){
+    try{ await window.storage.set('sim-solved-count', JSON.stringify(state.solvedCount)); }catch(e){}
+  }
+
+  function toMinutes(hhmm){ const [h,m] = hhmm.split(':').map(Number); return h*60+m; }
+  function toHHMM(totalMin){
+    let t = ((totalMin % 1440) + 1440) % 1440;
+    const h = Math.floor(t/60).toString().padStart(2,'0');
+    const m = (t%60).toString().padStart(2,'0');
+    return `${h}:${m}`;
+  }
+  function nowMinutes(){ const d = new Date(); return d.getHours()*60 + d.getMinutes(); }
+
+  // --- sound ---
+  let audioCtx = null;
+  function ctx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+  function playTone(freqs, dur=0.14, gap=0.09){
+    if(!state.soundOn) return;
+    const ac = ctx(); let t = ac.currentTime;
+    freqs.forEach(f=>{
+      const osc = ac.createOscillator(); const gain = ac.createGain();
+      osc.type = 'sine'; osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain).connect(ac.destination);
+      osc.start(t); osc.stop(t + dur + 0.02);
+      t += gap;
+    });
+  }
+  function playComplete(){ playTone([660, 880, 1100]); }
+  function playAlert(){ playTone([520, 520], 0.16, 0.2); }
+  function playWin(){ playTone([660, 880, 1100, 1320], 0.15, 0.11); }
+
+  // --- YouTube BGM ---
+  function getYouTubeId(url){
+    if(!url) return null;
+    const m = url.match(/(?:youtu\.be\/|[?&]v=|embed\/)([\w-]{11})/);
+    return m ? m[1] : null;
+  }
+  let ytPlayer = null;
+  let ytReady = false;
+  window.onYouTubeIframeAPIReady = function(){ ytReady = true; };
+  (function loadYT(){
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  })();
+  function ensurePlayer(videoId, cb){
+    if(!window.YT || !ytReady){ setTimeout(()=>ensurePlayer(videoId, cb), 300); return; }
+    if(!ytPlayer){
+      ytPlayer = new YT.Player('ytPlayer', {
+        height:'0', width:'0', videoId: videoId,
+        playerVars:{ autoplay:1, controls:0 },
+        events:{ onReady: ()=>{ cb && cb(); } }
+      });
+    } else {
+      ytPlayer.loadVideoById(videoId);
+      cb && cb();
+    }
+  }
+  function playBGM(){
+    const id = getYouTubeId(state.bgmUrl);
+    if(!id) return;
+    ensurePlayer(id, ()=>{ try{ ytPlayer.playVideo(); }catch(e){} });
+    state.bgmPlaying = true;
+  }
+  function pauseBGM(){ if(ytPlayer){ try{ ytPlayer.pauseVideo(); }catch(e){} } state.bgmPlaying = false; }
+  function stopBGM(){ if(ytPlayer){ try{ ytPlayer.stopVideo(); }catch(e){} } state.bgmPlaying = false; }
+
+  // --- Mascot: character data (6 original animal characters, switchable) ---
+  const mascotData = {
+    usagi: {
+      name: 'うさぎ',
+      intro: 'はじめまして、うさぎだよ。のんびりだけど、一緒に予定に間に合う練習をしていこうね。',
+      lines: {
+        greetMorning: ['おはよう。今日も一緒にがんばろうね。', 'おはよう、まずは今日の予定を教えてね。'],
+        greetAfternoon: ['こんにちは。午後の予定もぬかりなく。', 'こんにちは、次の予定を確認しておこうか。'],
+        greetEvening: ['こんばんは。夜も気を抜かずいこうね。', 'おつかれさま、今日の残りも一緒にがんばろう。'],
+        greetNight: ['こんな時間まで偉いね。無理はしないで。', 'こんばんは、明日の準備を少しだけ見ておく？'],
+        home: ['実践か練習、どっちにする？', '今日はどっちのモードでいく？'],
+        friends: ['友だちを登録すると、お題に登場するよ。', 'だれを登録しようかな？'],
+        bgm: ['音楽があると気分が上がるよね。', '好きな曲を登録してみて。'],
+        practiceStart: ['予定を教えてね。逆算するよ。', 'よし、今日の本番いこう。'],
+        practiceResult: ['この順番で動けば大丈夫。', '上から順番にね、応援してるよ。'],
+        simScenario: ['このお題、逆算できるかな？', '練習あるのみ、やってみよう。'],
+        praiseOnTime: ['やった、時間通りにできたね。', 'ナイス、その調子。', 'えらい、完璧なタイミング。'],
+        nudgeOverdue: ['あれ、時間が来ちゃった。でもまだ間に合うよ。', '急ごう、でも焦らなくて大丈夫。'],
+        allDone: ['パーフェクト、全部時間通り。', 'すごい、逆算バッチリだったね。'],
+        simWin: ['正解、この感覚を覚えておこう。', 'よくできました、次のお題もいこう。'],
+      }
+    },
+    buta: {
+      name: 'ぶた',
+      intro: 'やっほー、ぶただよ！ごはんも予定もタイミングが命だよね。一緒にがんばろう！',
+      lines: {
+        greetMorning: ['おはよう！朝ごはん食べた？さあ張り切っていこう！', 'おはよう〜！今日の予定、腹ごしらえしてから聞かせて！'],
+        greetAfternoon: ['こんにちは！午後もお腹すかせて動こう！', 'こんにちはー、次の予定はなに？'],
+        greetEvening: ['こんばんは！晩ごはんの前に予定を片付けよう！', 'おつかれさま！今日もよく動いたね！'],
+        greetNight: ['こんな時間まで起きてるの！？お夜食もほどほどにね。', 'こんばんは、夜更かしすぎ注意だよ！'],
+        home: ['実践？練習？どっちもお腹すくよね！', 'さあ、どっちのモードにする？'],
+        friends: ['友だち登録する？お題に出してあげるよ！', 'だれ登録する？わくわくするね！'],
+        bgm: ['音楽あるとテンション上がるよね！', '好きな曲、流しちゃおう！'],
+        practiceStart: ['予定教えて！さっそく逆算するよ！', 'よーし、今日の本番いくぞー！'],
+        practiceResult: ['この順番で動けばOK！ぼくも応援してる！', '上から順番にね、ファイトー！'],
+        simScenario: ['このお題、解けるかな！？', '練習だ〜！腕試しといこう！'],
+        praiseOnTime: ['やったー！時間通り最高！', 'すごいすごい！その調子！', 'えらいえらい！完璧！'],
+        nudgeOverdue: ['あー時間過ぎちゃった！でもまだ間に合うよ！', '急ごう急ごう！でも大丈夫！'],
+        allDone: ['やったー！パーフェクト！お祝いしたい気分！', 'すごい！逆算バッチリだったね！'],
+        simWin: ['正解〜！この調子で次もいこう！', 'よくできました！お見事！'],
+      }
+    },
+    kuma: {
+      name: 'くま',
+      intro: 'はじめまして、くまです。どっしり構えて、しっかり応援するよ。よろしくね。',
+      lines: {
+        greetMorning: ['おはよう。今日も落ち着いていこう。', 'おはよう、まずは今日の予定を聞かせてくれるかな。'],
+        greetAfternoon: ['こんにちは。午後も着実にいこう。', 'こんにちは、次の予定は決まってる？'],
+        greetEvening: ['こんばんは。今日もよく頑張ったね。', 'おつかれさま。あと少し、一緒にやろう。'],
+        greetNight: ['こんな時間まで、無理はしないでね。', 'こんばんは。休むのも大事だよ。'],
+        home: ['実践か練習か、決めたら教えてね。', 'どっちのモードにする？じっくり選んでいいよ。'],
+        friends: ['友だちを登録すると、お題に出てくるよ。', 'だれか登録してみる？'],
+        bgm: ['音楽、流してみようか。', '好きな曲があれば登録しておくといいよ。'],
+        practiceStart: ['予定を教えて。逆算してあげよう。', 'よし、今日の本番、一緒にやろう。'],
+        practiceResult: ['この順番で動けば大丈夫。ちゃんと見てるよ。', '焦らず、上から順番にね。'],
+        simScenario: ['このお題、じっくり逆算してみよう。', '練習は裏切らないよ、やってみよう。'],
+        praiseOnTime: ['よくやった。時間通りだね。', 'いいね、その調子だ。', '立派だ、完璧なタイミングだよ。'],
+        nudgeOverdue: ['時間が過ぎたね。でもまだ間に合うよ、落ち着いて。', '急ごう。大丈夫、まだやれる。'],
+        allDone: ['よくやった。全部時間通りだったね。', '見事だ。逆算がしっかりできてる。'],
+        simWin: ['正解だ。この感覚を覚えておくといい。', 'よくできた。次のお題もいこう。'],
+      }
+    },
+    kuma2: {
+      name: 'くま（そばかす）',
+      intro: 'よっ、そばかすくまだよ。ちょっとイタズラ好きだけど、ちゃんと応援するから任せて。',
+      lines: {
+        greetMorning: ['おはよう！今日はちゃんと起きられたみたいだね、えらいえらい。', 'おはよ〜、寝坊しなかった？'],
+        greetAfternoon: ['こんにちは！午後もサボらずいこうね〜。', 'こんにちは、油断してない？'],
+        greetEvening: ['こんばんは！今日はどれくらいちゃんとできた？', 'おつかれ〜、あと少しだけ付き合って。'],
+        greetNight: ['こんな時間まで起きてるなんて、面白いことでもあった？', 'こんばんは、夜更かし仲間発見。'],
+        home: ['実践？練習？さあどっちにする？', 'どっちのモードにするか、決めた？'],
+        friends: ['友だち登録する？お題に出しちゃおうかな。', 'だれか登録すると面白くなりそう。'],
+        bgm: ['音楽流す？盛り上がりそうだね。', '好きな曲登録しちゃいなよ。'],
+        practiceStart: ['予定教えて、パパッと逆算しちゃうから。', 'よーし、いっちょやってみようか。'],
+        practiceResult: ['この順番だよ、間違えないでね〜。', '上から順番にね、見ててあげる。'],
+        simScenario: ['このお題、解けるかな〜？やってみて。', '練習だからって油断しないでね。'],
+        praiseOnTime: ['おっ、やるじゃん！時間通り！', 'いいね〜、その調子その調子。', 'ほう、なかなかやるね。'],
+        nudgeOverdue: ['あちゃー、時間過ぎちゃった。でもまだ間に合うから急いで！', 'おっと、急がないと。でも大丈夫。'],
+        allDone: ['おおっ、パーフェクト！やるじゃないか！', 'すごいすごい、完璧だったね！'],
+        simWin: ['正解！なかなかやるね、この調子！', 'よくできました、次もいってみよう！'],
+      }
+    },
+    neko: {
+      name: 'ねこ',
+      intro: 'にゃ、ねこだよ。マイペースだけど、ちゃんと見ててあげる。よろしく。',
+      lines: {
+        greetMorning: ['おはよう…にゃ。今日の予定、教えて。', 'おはよう。まあ、ぼちぼちいこうか。'],
+        greetAfternoon: ['こんにちは。午後もマイペースにいこう。', 'こんにちは、次の予定は？'],
+        greetEvening: ['こんばんは。今日もおつかれさま。', 'こんばんは、あと少しだね。'],
+        greetNight: ['こんな時間まで…まあ、付き合ってあげる。', 'こんばんは。夜は静かでいいよね。'],
+        home: ['実践？練習？好きな方を選んで。', 'どっちのモードにする？'],
+        friends: ['友だち登録する？気が向いたらどうぞ。', 'だれか登録すると、お題に出てくるよ。'],
+        bgm: ['音楽、流してもいいんじゃない。', '好きな曲があるなら登録しておいて。'],
+        practiceStart: ['予定を教えて。逆算してあげる。', 'ん、いいよ。今日の本番いこう。'],
+        practiceResult: ['この順番でいけば大丈夫。', '上から順にね。見ててあげるから。'],
+        simScenario: ['このお題、解けそう？やってみて。', '練習くらい、涼しい顔でこなしなよ。'],
+        praiseOnTime: ['ふふ、やるじゃない。', 'いいね、その調子。', 'なかなか、悪くないよ。'],
+        nudgeOverdue: ['時間過ぎてるよ。まだ間に合うから急いで。', 'あらら、急いだほうがいいかも。'],
+        allDone: ['やるじゃない、完璧だったね。', 'ふふん、なかなかやるね。'],
+        simWin: ['正解。まあまあ、やるじゃない。', 'いいね、次のお題もいこうか。'],
+      }
+    },
+    inu: {
+      name: 'いぬ',
+      intro: 'わん！いぬだよ！一緒に予定に間に合わせるの、すっごく楽しみにしてたんだ！',
+      lines: {
+        greetMorning: ['おはよう！！今日も元気いっぱいいこうね！', 'おはよう〜！予定教えて、はりきって逆算するよ！'],
+        greetAfternoon: ['こんにちは！午後も全力でいこう！', 'こんにちは！次の予定はなに？'],
+        greetEvening: ['こんばんは！今日もよく頑張ったね、えらい！', 'おつかれさま！あと少し、一緒にがんばろう！'],
+        greetNight: ['こんな時間まで一緒にいられて嬉しいな！でも無理しないでね。', 'こんばんは！夜もそばにいるよ！'],
+        home: ['実践？練習？どっちも楽しみ！', 'どっちのモードにする？わくわく！'],
+        friends: ['友だち登録する？楽しみだね！', 'だれか登録すると、お題に出てくるよ！'],
+        bgm: ['音楽流そう！テンション上がるね！', '好きな曲、登録してみて！'],
+        practiceStart: ['予定教えて！全力で逆算するよ！', 'よーし、今日の本番、いくぞー！'],
+        practiceResult: ['この順番でいこう！ぼくも応援してる！', '上から順番にね、ファイト！'],
+        simScenario: ['このお題、一緒に挑戦しよう！', '練習だ！楽しみながらいこう！'],
+        praiseOnTime: ['やったー！さすが！', 'すごいすごい！かっこいい！', 'えらい！完璧だったね！'],
+        nudgeOverdue: ['あ、時間過ぎちゃった！でもまだ間に合うよ、急ごう！', '急ごう急ごう！大丈夫、一緒にいくよ！'],
+        allDone: ['やったー！！全部時間通り、最高！', 'すごいすごい！感動しちゃった！'],
+        simWin: ['正解ー！！この調子で次もいこう！', 'よくできました！お見事！'],
+      }
+    }
+  };
+  function currentMascot(){ return mascotData[state.mascotId] || mascotData.usagi; }
+  function pickLine(cat){
+    const arr = currentMascot().lines[cat];
+    if(!arr) return null;
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+  const mascotIds = ['usagi','buta','kuma','kuma2','neko','inu'];
+  function applyMascotAvatar(){
+    mascotIds.forEach(id=>{
+      const el = document.getElementById('avatar-' + id);
+      if(el) el.style.display = (state.mascotId === id) ? 'block' : 'none';
+    });
+    const nameEl = document.getElementById('mascotName');
+    if(nameEl) nameEl.textContent = currentMascot().name;
+  }
+  function currentAvatarId(){
+    return 'avatar-' + (mascotIds.includes(state.mascotId) ? state.mascotId : 'usagi');
+  }
+  function mascotSay(text, opts){
+    const el = document.getElementById('mascotSpeech');
+    if(!el || !text) return;
+    el.innerHTML = '<b id="mascotName">' + currentMascot().name + '</b>' + text;
+    if(opts && opts.celebrate){
+      const av = document.getElementById(currentAvatarId());
+      av.classList.remove('celebrate');
+      void av.offsetWidth;
+      av.classList.add('celebrate');
+    }
+  }
+  function mascotSayCat(cat){ const l = pickLine(cat); if(l) mascotSay(l); }
+  async function saveMascotId(){
+    try{ await window.storage.set('mascot-id', state.mascotId); }catch(e){}
+  }
+  async function greetOnLoad(){
+    applyMascotAvatar();
+    let met = false;
+    try{ const m = await window.storage.get('mascot-met-' + state.mascotId); met = !!(m && m.value); }catch(e){ met = false; }
+    if(!met){
+      mascotSay(currentMascot().intro);
+      try{ await window.storage.set('mascot-met-' + state.mascotId, 'true'); }catch(e){}
+      return;
+    }
+    const h = new Date().getHours();
+    if(h >= 5 && h < 11) mascotSayCat('greetMorning');
+    else if(h >= 11 && h < 17) mascotSayCat('greetAfternoon');
+    else if(h >= 17 && h < 23) mascotSayCat('greetEvening');
+    else mascotSayCat('greetNight');
+  }
+  let lastScreen = null;
+  function mascotEnter(screen){
+    if(screen === lastScreen) return;
+    lastScreen = screen;
+    if(screen === 'home') mascotSayCat('home');
+    else if(screen === 'friends') mascotSayCat('friends');
+    else if(screen === 'bgm') mascotSayCat('bgm');
+    else if(screen === 'p-goal') mascotSayCat('practiceStart');
+    else if(screen === 'p-result') mascotSayCat('practiceResult');
+    else if(screen === 's-scenario') mascotSayCat('simScenario');
+  }
+
+  function render(){
+    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    const s = state.screen;
+    mascotEnter(s);
+    homeLink.style.display = (s === 'home') ? 'none' : 'inline';
+
+    if(s === 'home'){
+      eyebrowText.textContent = 'TIME TRAINING';
+      mainTitle.textContent = '逆算トレーニング';
+      mainSub.textContent = '今日の本番で使うか、ランダムなお題で練習するか選べます。';
+      progressEl.innerHTML = '';
+      renderHome();
+    } else if(s === 'friends'){
+      eyebrowText.textContent = 'TIME TRAINING · 練習相手';
+      mainTitle.textContent = '練習相手を管理';
+      mainSub.textContent = 'シミュレーションのお題に登場する友だちを登録できます。';
+      progressEl.innerHTML = '';
+      renderFriends();
+    } else if(s === 'bgm'){
+      eyebrowText.textContent = 'TIME TRAINING · BGM設定';
+      mainTitle.textContent = 'BGMを設定';
+      mainSub.textContent = 'YouTubeのURLを登録すると、逆算スケジュールの実行中に流せます。';
+      progressEl.innerHTML = '';
+      renderBgm();
+    } else if(s === 'character'){
+      eyebrowText.textContent = 'TIME TRAINING · キャラクター';
+      mainTitle.textContent = 'キャラクターを選ぶ';
+      mainSub.textContent = '一緒にトレーニングするキャラクターを選べます。';
+      progressEl.innerHTML = '';
+      renderCharacter();
+    } else if(s === 'room'){
+      eyebrowText.textContent = 'TIME TRAINING · 部屋';
+      mainTitle.textContent = 'キャラクターの部屋';
+      mainSub.textContent = '予定を達成するたびに、部屋の飾りがひとつ増えます。';
+      progressEl.innerHTML = '';
+      renderRoom();
+    } else if(s === 'gallery'){
+      eyebrowText.textContent = 'TIME TRAINING · アイテム図鑑';
+      mainTitle.textContent = 'アイテム図鑑';
+      mainSub.textContent = '集めたアイテムの一覧です。全部で' + decorPool.length + '種類あります。';
+      progressEl.innerHTML = '';
+      renderGallery();
+    } else if(s.startsWith('p-')){
+      eyebrowText.textContent = 'TIME TRAINING · 実践モード';
+      mainTitle.textContent = '実践モード';
+      mainSub.textContent = '今日の本番の予定で、現在時刻と照らしながら逆算します。';
+      renderPracticeProgress();
+      if(s === 'p-goal') renderGoal();
+      else if(s === 'p-prep') renderStepper(stepperConfig.prep, 'p-goal', 'p-travel');
+      else if(s === 'p-travel') renderStepper(stepperConfig.travel, 'p-prep', 'p-buffer');
+      else if(s === 'p-buffer') renderStepper(stepperConfig.buffer, 'p-travel', 'p-result');
+      else if(s === 'p-result'){ renderPracticeResult(); tickTimer = setInterval(renderPracticeResult, 15000); }
+    } else if(s.startsWith('s-')){
+      eyebrowText.textContent = 'TIME TRAINING · シミュレーション';
+      mainTitle.textContent = 'シミュレーションモード';
+      mainSub.textContent = 'ランダムなお題を使って逆算の練習をします（実際の時刻とは連動しません）。';
+      progressEl.innerHTML = '';
+      if(s === 's-scenario') renderScenario();
+      else if(s === 's-prep') renderStepper(stepperConfig.prep, 's-scenario', 's-travel');
+      else if(s === 's-travel') renderStepper(stepperConfig.travel, 's-prep', 's-buffer');
+      else if(s === 's-buffer') renderStepper(stepperConfig.buffer, 's-travel', 's-result');
+      else if(s === 's-result') renderSimResult();
+    }
+  }
+
+  function renderPracticeProgress(){
+    const order = ['p-goal','p-prep','p-travel','p-buffer'];
+    const idx = order.indexOf(state.screen);
+    progressEl.innerHTML = '';
+    order.forEach((k,i)=>{
+      const el = document.createElement('i');
+      if(idx === -1){ el.className = 'done'; }
+      else if(i < idx) el.className = 'done';
+      else if(i === idx) el.className = 'now';
+      progressEl.appendChild(el);
+    });
+  }
+
+  // --- Home ---
+  function renderHome(){
+    wizard.innerHTML = `
+      <button class="mode-card practice" id="goPractice">
+        <div class="icon">🚉</div>
+        <div class="txt"><b>実践モード</b><span>今日の本番の予定を入力して、現在時刻と照らしながら逆算します。</span></div>
+      </button>
+      <button class="mode-card sim" id="goSim">
+        <div class="icon">🎲</div>
+        <div class="txt"><b>シミュレーションモード</b><span>ランダムなお題で逆算の練習。友だちを登録すると、お題に登場します。</span></div>
+      </button>
+      <button class="friend-link" id="goFriends">👥 練習相手を管理（${state.friends.length}人登録中）</button>
+      <button class="friend-link" id="goBgm">🎵 BGMを設定（${state.bgmUrl ? "設定済み" : "未設定"}）</button>
+      <button class="friend-link" id="goCharacter">🎭 キャラクターを選ぶ（今：${currentMascot().name}）</button>
+      <button class="friend-link" id="goRoom">🏠 部屋を見る（${state.unlockedDecor.length}/${decorPool.length}）</button>
+      <button class="friend-link" id="goGallery">📖 アイテム図鑑を見る（全${decorPool.length}種類）</button>
+    `;
+    document.getElementById('goPractice').addEventListener('click', ()=>{ state.screen='p-goal'; render(); });
+    document.getElementById('goSim').addEventListener('click', ()=>{ state.screen='s-scenario'; state.sim=null; render(); });
+    document.getElementById('goFriends').addEventListener('click', ()=>{ state.screen='friends'; render(); });
+    document.getElementById('goBgm').addEventListener('click', ()=>{ state.screen='bgm'; render(); });
+    document.getElementById('goCharacter').addEventListener('click', ()=>{ state.screen='character'; render(); });
+    document.getElementById('goRoom').addEventListener('click', ()=>{ state.screen='room'; render(); });
+    document.getElementById('goGallery').addEventListener('click', ()=>{ state.screen='gallery'; render(); });
+  }
+
+  // --- Friends management ---
+  function renderFriends(){
+    const listHtml = state.friends.length
+      ? state.friends.map((f,i)=>`
+          <div class="friend-row">
+            <div class="name">${f}</div>
+            <button data-idx="${i}">削除</button>
+          </div>`).join('')
+      : `<div class="empty-note">まだ登録されていません。追加すると、シミュレーションのお題に登場します。</div>`;
+
+    wizard.innerHTML = `
+      <div class="card">
+        ${listHtml}
+        <div class="add-friend-row">
+          <input type="text" id="newFriend" placeholder="名前を入力（例：さくらさん）">
+          <button id="addFriend">追加</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="back">ホームに戻る</button>
+      </div>
+    `;
+    document.querySelectorAll('.friend-row button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx);
+        state.friends.splice(idx,1);
+        saveFriends();
+        renderFriends();
+      });
+    });
+    const input = document.getElementById('newFriend');
+    document.getElementById('addFriend').addEventListener('click', ()=>{
+      const v = input.value.trim();
+      if(!v) return;
+      state.friends.push(v);
+      saveFriends();
+      renderFriends();
+    });
+    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('addFriend').click(); });
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- BGM settings ---
+  function renderBgm(){
+    wizard.innerHTML = `
+      <div class="card">
+        <label class="field-label">YouTubeのURL</label>
+        <input type="text" id="bgmInput" placeholder="https://www.youtube.com/watch?v=..." value="${state.bgmUrl}" style="margin-bottom:10px;">
+        <div class="bgm-hint">逆算スケジュールの画面に進むと自動で再生を試みます。ブラウザの自動再生制限で最初は音が出ないことがあるので、その場合は画面上の🎵ボタンを押してください。</div>
+        ${state.bgmUrl ? `<div class="bgm-status">現在設定中のURL：${state.bgmUrl}</div>` : ''}
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="clearBgm">解除する</button>
+          <button class="btn btn-primary" id="saveBgm">保存する</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="back">ホームに戻る</button>
+      </div>
+    `;
+    document.getElementById('saveBgm').addEventListener('click', ()=>{
+      state.bgmUrl = document.getElementById('bgmInput').value.trim();
+      saveBgmUrl();
+      renderBgm();
+    });
+    document.getElementById('clearBgm').addEventListener('click', ()=>{
+      state.bgmUrl = ''; stopBGM();
+      saveBgmUrl();
+      renderBgm();
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- Character selection ---
+  const mascotIcons = { usagi:'🐰', buta:'🐷', kuma:'🐻', kuma2:'🐻', neko:'🐱', inu:'🐶' };
+  function renderCharacter(){
+    const cards = Object.keys(mascotData).map((id, i)=>{
+      const m = mascotData[id];
+      const active = state.mascotId === id;
+      return `
+        <button class="mode-card ${i % 2 === 0 ? 'practice' : 'sim'}" data-id="${id}" style="${active ? 'border-color:var(--purple); border-width:2px;' : ''}">
+          <div class="icon">${mascotIcons[id] || '🐾'}</div>
+          <div class="txt"><b>${m.name}${active ? '（選択中）' : ''}</b><span>${m.intro}</span></div>
+        </button>`;
+    }).join('');
+    wizard.innerHTML = cards + `
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="back">ホームに戻る</button>
+      </div>
+    `;
+    document.querySelectorAll('[data-id]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.mascotId = btn.dataset.id;
+        saveMascotId();
+        applyMascotAvatar();
+        mascotSay(currentMascot().intro, {celebrate:true});
+        renderCharacter();
+      });
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- Room / decorations (free placement, drag to move) ---
+  function roomToPercent(canvasEl, clientX, clientY){
+    const rect = canvasEl.getBoundingClientRect();
+    let x = (clientX - rect.left) / rect.width * 100;
+    let y = (clientY - rect.top) / rect.height * 100;
+    x = Math.max(10, Math.min(90, x));
+    y = Math.max(48, Math.min(92, y));
+    return {x, y};
+  }
+  function makeDraggable(el, id){
+    let dragging = false, moved = false, startX = 0, startY = 0;
+    const canvasEl = document.getElementById('roomCanvas');
+    el.addEventListener('pointerdown', (e)=>{
+      dragging = true; moved = false;
+      startX = e.clientX; startY = e.clientY;
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    el.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      if(Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) moved = true;
+      if(moved){
+        const p = roomToPercent(canvasEl, e.clientX, e.clientY);
+        el.style.left = p.x + '%';
+        el.style.top = p.y + '%';
+        state.roomLayout[id] = p;
+        el.classList.add('dragging');
+      }
+    });
+    function finish(){
+      if(!dragging) return;
+      dragging = false;
+      el.classList.remove('dragging');
+      if(moved){
+        saveRoomLayout();
+      } else {
+        delete state.roomLayout[id];
+        saveRoomLayout();
+        renderRoom();
+      }
+    }
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', finish);
+  }
+  function renderRoom(){
+    const avatarSvg = document.getElementById(currentAvatarId()).outerHTML
+      .replace('style="display:none;"', '')
+      .replace('style="display:block;"', '');
+    const placedIds = Object.keys(state.roomLayout).filter(id => state.unlockedDecor.includes(id));
+    const placedHtml = placedIds.map(id=>{
+      const d = decorPool.find(x=>x.id===id);
+      if(!d) return '';
+      const p = state.roomLayout[id];
+      return `<div class="room-placed" id="placed-${id}" style="left:${p.x}%; top:${p.y}%;">${d.emoji}</div>`;
+    }).join('');
+
+    const trayHtml = decorPool.map(d=>{
+      const got = state.unlockedDecor.includes(d.id);
+      const placed = !!state.roomLayout[d.id];
+      if(got && placed) return '';
+      return `<div class="room-item ${got?'':'locked'}" data-id="${d.id}" title="${got?d.name:'???'}">${got ? d.emoji : '❔'}</div>`;
+    }).join('');
+
+    wizard.innerHTML = `
+      <div class="room-card">
+        <div class="room-canvas" id="roomCanvas">
+          <svg class="room-diorama" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <polygon points="20,40 150,15 150,100 20,130" fill="#CFE3F0"/>
+            <polygon points="280,40 150,15 150,100 280,130" fill="#E3F1F8"/>
+            <polygon points="20,130 150,100 280,130 150,215" fill="#F3E7C9"/>
+            <line x1="150" y1="15" x2="150" y2="100" stroke="#B9CFDC" stroke-width="1.5"/>
+            <polygon points="46,66 91.5,57 91.5,92 46,102" fill="#FFFFFF" opacity="0.55" stroke="#B9CFDC" stroke-width="2"/>
+            <polygon points="208.5,56.75 254,66.15 254,101.75 208.5,91.65" fill="#FFFFFF" opacity="0.55" stroke="#CFE0E8" stroke-width="2"/>
+            <line x1="20" y1="130" x2="150" y2="100" stroke="#E3B860" stroke-width="3"/>
+            <line x1="280" y1="130" x2="150" y2="100" stroke="#E3B860" stroke-width="3"/>
+            <g stroke="#E7D6A8" stroke-width="1" opacity="0.7">
+              <line x1="72" y1="146" x2="150" y2="164"/>
+              <line x1="98" y1="163" x2="150" y2="182"/>
+              <line x1="124" y1="180" x2="150" y2="198"/>
+              <line x1="228" y1="146" x2="150" y2="164"/>
+              <line x1="202" y1="163" x2="150" y2="182"/>
+              <line x1="176" y1="180" x2="150" y2="198"/>
+            </g>
+          </svg>
+          <div class="room-mascot">${avatarSvg}</div>
+          ${placedHtml}
+        </div>
+        <div class="room-hint">アイテムをタップで配置、ドラッグで移動、もう一度タップでしまえます。</div>
+        <div class="room-tray-label">持ちもの（${state.unlockedDecor.length} / ${decorPool.length} 個 集めた）</div>
+        <div class="room-tray">${trayHtml}</div>
+        <div class="room-progress-note">予定を達成すると、アイテムがひとつ増えます。</div>
+      </div>
+      <div class="btn-row"><button class="btn btn-ghost" id="back">ホームに戻る</button></div>
+    `;
+    placedIds.forEach(id=>{
+      const el = document.getElementById('placed-' + id);
+      if(el) makeDraggable(el, id);
+    });
+    document.querySelectorAll('.room-item[data-id]').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        const id = chip.dataset.id;
+        if(!state.unlockedDecor.includes(id)) return;
+        state.roomLayout[id] = { x: 20 + Math.random()*60, y: 55 + Math.random()*30 };
+        saveRoomLayout();
+        renderRoom();
+      });
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- Gallery: full item list ---
+  function renderGallery(){
+    const gotCount = state.unlockedDecor.length;
+    const itemsHtml = decorPool.map(d=>{
+      const got = state.unlockedDecor.includes(d.id);
+      return `<div class="gallery-item ${got?'':'locked'}">
+        <div class="emoji">${got ? d.emoji : '❔'}</div>
+        <div class="label">${got ? d.name : '？？？'}</div>
+      </div>`;
+    }).join('');
+    wizard.innerHTML = `
+      <div class="gallery-summary">${gotCount} / ${decorPool.length} 種類 集めた</div>
+      <div class="gallery-grid">${itemsHtml}</div>
+      <div class="btn-row" style="margin-top:16px;"><button class="btn btn-ghost" id="back">ホームに戻る</button></div>
+    `;
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- Practice: goal input ---
+  function renderGoal(){
+    wizard.innerHTML = `
+      <div class="card">
+        <div class="q-label">今日、絶対に間に合わせたい予定は何ですか？</div>
+        <label class="field-label">予定の名前</label>
+        <input type="text" id="eventName" placeholder="例：出勤／登園受け入れ" value="${state.eventName}" style="margin-bottom:14px;">
+        <label class="field-label">その時刻までに着いていたい時刻</label>
+        <input type="time" id="goalTime" value="${state.goalTime}">
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="back">ホームに戻る</button>
+          <button class="btn btn-primary" id="next" disabled>次へ</button>
+        </div>
+      </div>
+    `;
+    const nameEl = document.getElementById('eventName');
+    const timeEl = document.getElementById('goalTime');
+    const nextBtn = document.getElementById('next');
+    function check(){ nextBtn.disabled = !(nameEl.value.trim() && timeEl.value); }
+    nameEl.addEventListener('input', check);
+    timeEl.addEventListener('input', check);
+    check();
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+    nextBtn.addEventListener('click', ()=>{
+      state.eventName = nameEl.value.trim();
+      state.goalTime = timeEl.value;
+      state.screen = 'p-prep';
+      render();
+    });
+  }
+
+  // --- Shared: minute stepper (1-minute precision, direct typing) ---
+  const stepperConfig = {
+    prep:   { key:'prepMin',   label:'家を出るまでの「準備」に何分かかりますか？', hint:'着替え・身支度・朝食など、玄関を出るまでの時間', min:0, max:180 },
+    travel: { key:'travelMin', label:'そこまでの「移動」に何分かかりますか？',       hint:'徒歩・電車・車など、実際にかかる移動時間', min:0, max:240 },
+    buffer: { key:'bufferMin', label:'念のための「予備時間」はどれくらい取りますか？', hint:'忘れ物チェックや遅延対策など、あると安心な余裕時間', min:0, max:60 },
+  };
+
+  function renderStepper(cfg, backScreen, nextScreen){
+    wizard.innerHTML = `
+      <div class="card">
+        <div class="q-label">${cfg.label}</div>
+        <div class="q-hint">${cfg.hint}</div>
+        <div class="stepper">
+          <div class="stepper-row">
+            <button id="dec">−1</button>
+            <input type="number" class="min-input" id="val" value="${state[cfg.key]}" min="${cfg.min}" max="${cfg.max}" step="1">
+            <button id="inc">＋1</button>
+          </div>
+          <div class="stepper-caption">1分単位で直接入力もできます</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="back">戻る</button>
+          <button class="btn btn-primary" id="next">次へ</button>
+        </div>
+      </div>
+    `;
+    const valEl = document.getElementById('val');
+    function setVal(v){
+      v = Math.min(cfg.max, Math.max(cfg.min, Math.round(v) || 0));
+      state[cfg.key] = v;
+      valEl.value = v;
+    }
+    document.getElementById('dec').addEventListener('click', ()=>setVal(state[cfg.key]-1));
+    document.getElementById('inc').addEventListener('click', ()=>setVal(state[cfg.key]+1));
+    valEl.addEventListener('input', ()=>{ if(valEl.value !== '') state[cfg.key] = Number(valEl.value); });
+    valEl.addEventListener('blur', ()=>setVal(valEl.value));
+    document.getElementById('back').addEventListener('click', ()=>{ setVal(valEl.value); state.screen = backScreen; render(); });
+    document.getElementById('next').addEventListener('click', ()=>{
+      setVal(valEl.value);
+      state.screen = nextScreen;
+      if((nextScreen === 'p-result' || nextScreen === 's-result') && state.bgmUrl) playBGM();
+      render();
+    });
+  }
+
+  // --- Shared board renderer ---
+  function buildRows(eventName, goalTime){
+    const goalMin = toMinutes(goalTime);
+    const departMin = goalMin - state.travelMin;
+    const prepStartMin = departMin - state.prepMin - state.bufferMin;
+    return [
+      { time: prepStartMin, label:'準備スタート', sub:`予備${state.bufferMin}分を含む` },
+      { time: departMin,    label:'家を出る',      sub:`移動${state.travelMin}分` },
+      { time: goalMin,      label: eventName,      sub:'目標達成' },
+    ];
+  }
+
+  function renderPracticeResult(){
+    const rows = buildRows(state.eventName, state.goalTime);
+    const nowMin = nowMinutes();
+    rows.forEach((r,i)=>{
+      if(!state.doneFlags[i] && r.time <= nowMin && !state.alerted.has(i)){
+        state.alerted.add(i); playAlert(); mascotSayCat('nudgeOverdue');
+      }
+    });
+    let nextAssigned = false;
+    const rowsHtml = rows.map((r,i)=>{
+      const done = state.doneFlags[i];
+      let cls = 'row', flag = '';
+      if(done){ cls += ' manual-done'; flag = '✓ 完了'; }
+      else if(r.time <= nowMin){ cls += ' overdue'; flag = '時刻超過'; }
+      else if(!nextAssigned){ cls += ' next'; flag = '次はこれ'; nextAssigned = true; }
+      else { flag = 'この後'; }
+      return `<div class="${cls}">
+          <button class="check-btn ${done?'checked':''}" data-idx="${i}">${done?'✓':''}</button>
+          <div class="time">${toHHMM(r.time)}</div>
+          <div class="label">${r.label}<span class="sub">${r.sub}</span></div>
+        </div>`;
+    }).join('');
+
+    wizard.innerHTML = `
+      <div class="board">
+        <div class="board-head">
+          <div class="title">逆算スケジュール</div>
+          <div class="now-wrap">
+            <div class="now">現在 ${toHHMM(nowMin)}</div>
+            ${state.bgmUrl ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
+            <button class="sound-toggle ${state.soundOn?'':'off'}" id="soundBtn">${state.soundOn?'🔊':'🔇'}</button>
+          </div>
+        </div>
+        ${rowsHtml}
+        <div class="board-foot">「${state.eventName}」に ${state.goalTime} までに間に合わせるには、上から順に◯ボタンを押しながら進めます。</div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-ghost" id="editBtn">条件を変える</button>
+        <button class="btn btn-primary" id="restartBtn">別の予定でもう一度</button>
+      </div>
+    `;
+    document.getElementById('soundBtn').addEventListener('click', ()=>{ state.soundOn = !state.soundOn; renderPracticeResult(); });
+    if(state.bgmUrl){ document.getElementById('bgmBtn').addEventListener('click', ()=>{ state.bgmPlaying ? pauseBGM() : playBGM(); renderPracticeResult(); }); }
+    document.querySelectorAll('.check-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx);
+        state.doneFlags[idx] = !state.doneFlags[idx];
+        if(state.doneFlags[idx]){
+          playComplete();
+          if(state.doneFlags.every(Boolean)){
+            grantDecoration().then(d=>{
+              const extra = d ? `<br>🎁「${d.name}」をゲット！部屋に飾ろう。` : '';
+              mascotSay(pickLine('allDone') + extra, {celebrate:true});
+            });
+          } else {
+            mascotSay(pickLine(rows[idx].time > nowMinutes() ? 'praiseOnTime' : 'praiseOnTime'), {celebrate:true});
+          }
+        }
+        renderPracticeResult();
+      });
+    });
+    document.getElementById('editBtn').addEventListener('click', ()=>{ state.screen='p-prep'; render(); });
+    document.getElementById('restartBtn').addEventListener('click', ()=>{
+      stopBGM();
+      state.eventName=''; state.goalTime='';
+      state.doneFlags=[false,false,false]; state.alerted=new Set();
+      state.screen='p-goal'; render();
+    });
+  }
+
+  // --- Simulation scenarios ---
+  const scenarioTemplates = [
+    { tag:'待ち合わせ', friendNeeded:true,  make:(name)=>`${name}とカフェで待ち合わせ` },
+    { tag:'待ち合わせ', friendNeeded:true,  make:(name)=>`${name}と映画を観に行く約束` },
+    { tag:'お迎え',    friendNeeded:true,  make:(name)=>`${name}の子どもを一緒にお迎え` },
+    { tag:'仕事',      friendNeeded:false, make:()=>`取引先とのオンライン会議` },
+    { tag:'仕事',      friendNeeded:false, make:()=>`園内の職員会議` },
+    { tag:'通院',      friendNeeded:false, make:()=>`歯医者の予約` },
+    { tag:'習い事',    friendNeeded:false, make:()=>`ヨガ教室のレッスン開始` },
+    { tag:'来客',      friendNeeded:true,  make:(name)=>`${name}が家に遊びに来る` },
+    { tag:'移動',      friendNeeded:false, make:()=>`新幹線の発車時刻` },
+  ];
+  function randomTime(){
+    const hour = 7 + Math.floor(Math.random()*15); // 7:00-21:xx
+    const minutes = [0,10,15,20,30,40,45,50];
+    const min = minutes[Math.floor(Math.random()*minutes.length)];
+    return `${hour.toString().padStart(2,'0')}:${min.toString().padStart(2,'0')}`;
+  }
+  function generateScenario(){
+    let pool = scenarioTemplates;
+    if(state.friends.length === 0) pool = pool.filter(t => !t.friendNeeded);
+    const t = pool[Math.floor(Math.random()*pool.length)];
+    const name = t.friendNeeded ? state.friends[Math.floor(Math.random()*state.friends.length)] : null;
+    state.sim = { eventName: t.make(name), goalTime: randomTime(), tag: t.tag };
+    state.doneFlags = [false,false,false];
+    state.solvedCount++;
+    saveSolvedCount();
+  }
+
+  function renderScenario(){
+    if(!state.sim) generateScenario();
+    wizard.innerHTML = `
+      <div class="card">
+        <div class="scenario-tag">${state.sim.tag}</div>
+        <div class="scenario-text">${state.sim.eventName}</div>
+        <div class="scenario-time">${state.sim.goalTime}</div>
+        <div class="q-hint" style="margin-top:8px;">この時刻に間に合うよう、逆算してみましょう。</div>
+        <div class="solved-count">これまでに挑戦したお題：${state.solvedCount}問</div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="back">ホームに戻る</button>
+          <button class="btn btn-primary" id="start">はじめる</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+    document.getElementById('start').addEventListener('click', ()=>{ state.screen='s-prep'; render(); });
+  }
+
+  function renderSimResult(){
+    const rows = buildRows(state.sim.eventName, state.sim.goalTime);
+    let nextAssigned = false;
+    const rowsHtml = rows.map((r,i)=>{
+      const done = state.doneFlags[i];
+      let cls = 'row', flag = '';
+      if(done){ cls += ' manual-done'; flag = '✓ 完了'; }
+      else if(!nextAssigned){ cls += ' next'; flag = '次はこれ'; nextAssigned = true; }
+      else { flag = 'この後'; }
+      return `<div class="${cls}">
+          <button class="check-btn ${done?'checked':''}" data-idx="${i}">${done?'✓':''}</button>
+          <div class="time">${toHHMM(r.time)}</div>
+          <div class="label">${r.label}<span class="sub">${r.sub}</span></div>
+        </div>`;
+    }).join('');
+
+    wizard.innerHTML = `
+      <div class="board">
+        <div class="board-head">
+          <div class="title">シミュレーション結果</div>
+          <div class="now-wrap">
+            ${state.bgmUrl ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
+            <button class="sound-toggle ${state.soundOn?'':'off'}" id="soundBtn">${state.soundOn?'🔊':'🔇'}</button>
+          </div>
+        </div>
+        ${rowsHtml}
+        <div class="board-foot">「${state.sim.eventName}」（${state.sim.goalTime}）に間に合わせるなら、この順番で動くのが正解です。</div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-ghost" id="homeBtn">ホームに戻る</button>
+        <button class="btn btn-primary" id="nextBtn">次のお題へ</button>
+      </div>
+    `;
+    document.getElementById('soundBtn').addEventListener('click', ()=>{ state.soundOn=!state.soundOn; renderSimResult(); });
+    if(state.bgmUrl){ document.getElementById('bgmBtn').addEventListener('click', ()=>{ state.bgmPlaying ? pauseBGM() : playBGM(); renderSimResult(); }); }
+    document.querySelectorAll('.check-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx);
+        state.doneFlags[idx] = !state.doneFlags[idx];
+        if(state.doneFlags[idx]){
+          playComplete();
+          if(state.doneFlags.every(Boolean)){
+            setTimeout(playWin, 300);
+            grantDecoration().then(d=>{
+              const extra = d ? `<br>🎁「${d.name}」をゲット！部屋に飾ろう。` : '';
+              mascotSay(pickLine('simWin') + extra, {celebrate:true});
+            });
+          } else {
+            mascotSay(pickLine('praiseOnTime'), {celebrate:true});
+          }
+        }
+        renderSimResult();
+      });
+    });
+    document.getElementById('homeBtn').addEventListener('click', ()=>{ stopBGM(); state.screen='home'; render(); });
+    document.getElementById('nextBtn').addEventListener('click', ()=>{
+      state.sim = null; state.screen='s-scenario'; render();
+    });
+  }
+
+  loadPersisted().then(greetOnLoad);
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
