@@ -287,7 +287,8 @@
     friends: [],
     sim: null,
     solvedCount: 0,
-    bgmUrl: '',
+    bgmUrls: [],
+    currentBgmUrl: null,
     bgmPlaying: false,
     mascotId: 'usagi',
     savedPlan: null,
@@ -439,9 +440,17 @@
       if(c && c.value) state.solvedCount = JSON.parse(c.value);
     }catch(e){ state.solvedCount = 0; }
     try{
-      const b = await window.storage.get('bgm-url');
-      if(b && b.value) state.bgmUrl = JSON.parse(b.value);
-    }catch(e){ state.bgmUrl = ''; }
+      const bl = await window.storage.get('bgm-urls');
+      if(bl && bl.value){
+        state.bgmUrls = JSON.parse(bl.value);
+      } else {
+        const b = await window.storage.get('bgm-url');
+        if(b && b.value){
+          const old = JSON.parse(b.value);
+          if(old) state.bgmUrls = [old];
+        }
+      }
+    }catch(e){ state.bgmUrls = []; }
     try{
       const mi = await window.storage.get('mascot-id');
       if(mi && mi.value && mascotData[mi.value]) state.mascotId = mi.value;
@@ -489,8 +498,8 @@
     await saveUnlockedDecor();
     return d;
   }
-  async function saveBgmUrl(){
-    try{ await window.storage.set('bgm-url', JSON.stringify(state.bgmUrl)); }catch(e){}
+  async function saveBgmUrls(){
+    try{ await window.storage.set('bgm-urls', JSON.stringify(state.bgmUrls)); }catch(e){}
   }
   async function saveFriends(){
     try{ await window.storage.set('friends-list', JSON.stringify(state.friends)); }catch(e){}
@@ -533,7 +542,7 @@
   function playAlert(){ playTone([520, 520], 0.16, 0.2); }
   function playWin(){ playTone([660, 880, 1100, 1320], 0.15, 0.11); }
 
-  // --- YouTube BGM ---
+  // --- YouTube BGM (random playlist, auto-shuffles on track end) ---
   function getYouTubeId(url){
     if(!url) return null;
     const m = url.match(/(?:youtu\.be\/|[?&]v=|embed\/)([\w-]{11})/);
@@ -547,13 +556,31 @@
     tag.src = 'https://www.youtube.com/iframe_api';
     document.head.appendChild(tag);
   })();
+  function pickRandomBgmId(excludeUrl){
+    if(!state.bgmUrls.length) return null;
+    let pool = state.bgmUrls;
+    if(pool.length > 1 && excludeUrl) pool = pool.filter(u => u !== excludeUrl);
+    const url = pool[Math.floor(Math.random()*pool.length)];
+    return { url, id: getYouTubeId(url) };
+  }
   function ensurePlayer(videoId, cb){
     if(!window.YT || !ytReady){ setTimeout(()=>ensurePlayer(videoId, cb), 300); return; }
     if(!ytPlayer){
       ytPlayer = new YT.Player('ytPlayer', {
         height:'0', width:'0', videoId: videoId,
         playerVars:{ autoplay:1, controls:0 },
-        events:{ onReady: ()=>{ cb && cb(); } }
+        events:{
+          onReady: ()=>{ cb && cb(); },
+          onStateChange: (e)=>{
+            if(e.data === 0 && state.bgmPlaying){ // ended -> shuffle to next
+              const next = pickRandomBgmId(state.currentBgmUrl);
+              if(next && next.id){
+                state.currentBgmUrl = next.url;
+                ytPlayer.loadVideoById(next.id);
+              }
+            }
+          }
+        }
       });
     } else {
       ytPlayer.loadVideoById(videoId);
@@ -561,9 +588,11 @@
     }
   }
   function playBGM(){
-    const id = getYouTubeId(state.bgmUrl);
-    if(!id) return;
-    ensurePlayer(id, ()=>{ try{ ytPlayer.playVideo(); }catch(e){} });
+    if(!state.bgmUrls.length) return;
+    const pick = pickRandomBgmId(state.currentBgmUrl);
+    if(!pick || !pick.id) return;
+    state.currentBgmUrl = pick.url;
+    ensurePlayer(pick.id, ()=>{ try{ ytPlayer.playVideo(); }catch(e){} });
     state.bgmPlaying = true;
   }
   function pauseBGM(){ if(ytPlayer){ try{ ytPlayer.pauseVideo(); }catch(e){} } state.bgmPlaying = false; }
@@ -851,7 +880,7 @@
         <div class="txt"><b>シミュレーションモード</b><span>ランダムなお題で逆算の練習。友だちを登録すると、お題に登場します。</span></div>
       </button>
       <button class="friend-link" id="goFriends">👥 練習相手を管理（${state.friends.length}人登録中）</button>
-      <button class="friend-link" id="goBgm">🎵 BGMを設定（${state.bgmUrl ? "設定済み" : "未設定"}）</button>
+      <button class="friend-link" id="goBgm">🎵 BGMを設定（${state.bgmUrls.length ? state.bgmUrls.length + "曲登録中" : "未設定"}）</button>
       <button class="friend-link" id="goCharacter">🎭 キャラクターを選ぶ（今：${currentMascot().name}）</button>
       <button class="friend-link" id="goRoom">🏠 部屋を見る（${state.unlockedDecor.length}/${decorPool.length}）</button>
       <button class="friend-link" id="goGallery">📖 アイテム図鑑を見る（全${decorPool.length}種類）</button>
@@ -923,31 +952,44 @@
 
   // --- BGM settings ---
   function renderBgm(){
+    const listHtml = state.bgmUrls.length
+      ? state.bgmUrls.map((u,i)=>`
+          <div class="friend-row">
+            <div class="name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${u}</div>
+            <button data-idx="${i}">削除</button>
+          </div>`).join('')
+      : `<div class="empty-note">まだ登録されていません。1曲だけでも登録できますが、複数登録するとランダムに再生されます。</div>`;
+
     wizard.innerHTML = `
       <div class="card">
-        <label class="field-label">YouTubeのURL</label>
-        <input type="text" id="bgmInput" placeholder="https://www.youtube.com/watch?v=..." value="${state.bgmUrl}" style="margin-bottom:10px;">
-        <div class="bgm-hint">逆算スケジュールの画面に進むと自動で再生を試みます。ブラウザの自動再生制限で最初は音が出ないことがあるので、その場合は画面上の🎵ボタンを押してください。</div>
-        ${state.bgmUrl ? `<div class="bgm-status">現在設定中のURL：${state.bgmUrl}</div>` : ''}
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="clearBgm">解除する</button>
-          <button class="btn btn-primary" id="saveBgm">保存する</button>
+        ${listHtml}
+        <div class="add-friend-row">
+          <input type="text" id="bgmInput" placeholder="https://www.youtube.com/watch?v=...">
+          <button id="addBgm">追加</button>
         </div>
+        <div class="bgm-hint" style="margin-top:12px;">2曲以上登録すると、逆算スケジュールの画面に進んだときにランダムで1曲再生され、曲が終わると自動で次の曲へランダムに切り替わります。ブラウザの自動再生制限で最初は音が出ないことがあるので、その場合は画面上の🎵ボタンを押してください。</div>
       </div>
       <div class="btn-row">
         <button class="btn btn-ghost" id="back">ホームに戻る</button>
       </div>
     `;
-    document.getElementById('saveBgm').addEventListener('click', ()=>{
-      state.bgmUrl = document.getElementById('bgmInput').value.trim();
-      saveBgmUrl();
+    document.querySelectorAll('.friend-row button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx);
+        state.bgmUrls.splice(idx,1);
+        saveBgmUrls();
+        renderBgm();
+      });
+    });
+    const input = document.getElementById('bgmInput');
+    document.getElementById('addBgm').addEventListener('click', ()=>{
+      const v = input.value.trim();
+      if(!v) return;
+      state.bgmUrls.push(v);
+      saveBgmUrls();
       renderBgm();
     });
-    document.getElementById('clearBgm').addEventListener('click', ()=>{
-      state.bgmUrl = ''; stopBGM();
-      saveBgmUrl();
-      renderBgm();
-    });
+    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('addBgm').click(); });
     document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
   }
 
@@ -1197,7 +1239,7 @@
           bufferMin: state.bufferMin,
         });
       }
-      if((nextScreen === 'p-result' || nextScreen === 's-result') && state.bgmUrl) playBGM();
+      if((nextScreen === 'p-result' || nextScreen === 's-result') && state.bgmUrls.length) playBGM();
       render();
     });
   }
@@ -1252,7 +1294,7 @@
           <div class="title">逆算スケジュール</div>
           <div class="now-wrap">
             <div class="now">${isToday ? '現在 ' + toHHMM(nowMin) : dateLabel}</div>
-            ${state.bgmUrl ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
+            ${state.bgmUrls.length ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
             <button class="sound-toggle ${state.soundOn?'':'off'}" id="soundBtn">${state.soundOn?'🔊':'🔇'}</button>
           </div>
         </div>
@@ -1265,7 +1307,7 @@
       </div>
     `;
     document.getElementById('soundBtn').addEventListener('click', ()=>{ state.soundOn = !state.soundOn; renderPracticeResult(); });
-    if(state.bgmUrl){ document.getElementById('bgmBtn').addEventListener('click', ()=>{ state.bgmPlaying ? pauseBGM() : playBGM(); renderPracticeResult(); }); }
+    if(state.bgmUrls.length){ document.getElementById('bgmBtn').addEventListener('click', ()=>{ state.bgmPlaying ? pauseBGM() : playBGM(); renderPracticeResult(); }); }
     document.querySelectorAll('.check-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const idx = Number(btn.dataset.idx);
@@ -1364,7 +1406,7 @@
         <div class="board-head">
           <div class="title">シミュレーション結果</div>
           <div class="now-wrap">
-            ${state.bgmUrl ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
+            ${state.bgmUrls.length ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
             <button class="sound-toggle ${state.soundOn?'':'off'}" id="soundBtn">${state.soundOn?'🔊':'🔇'}</button>
           </div>
         </div>
@@ -1377,7 +1419,7 @@
       </div>
     `;
     document.getElementById('soundBtn').addEventListener('click', ()=>{ state.soundOn=!state.soundOn; renderSimResult(); });
-    if(state.bgmUrl){ document.getElementById('bgmBtn').addEventListener('click', ()=>{ state.bgmPlaying ? pauseBGM() : playBGM(); renderSimResult(); }); }
+    if(state.bgmUrls.length){ document.getElementById('bgmBtn').addEventListener('click', ()=>{ state.bgmPlaying ? pauseBGM() : playBGM(); renderSimResult(); }); }
     document.querySelectorAll('.check-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const idx = Number(btn.dataset.idx);
