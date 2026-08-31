@@ -281,7 +281,7 @@
 <script>
   const state = {
     screen: 'home',
-    eventName: '', goalTime: '',
+    eventName: '', goalTime: '', goalDate: '',
     prepMin: 15, travelMin: 20, bufferMin: 5,
     soundOn: true, doneFlags: [false,false,false], alerted: new Set(),
     friends: [],
@@ -290,6 +290,7 @@
     bgmUrl: '',
     bgmPlaying: false,
     mascotId: 'usagi',
+    savedPlan: null,
     unlockedDecor: [],
     roomLayout: {},
   };
@@ -453,10 +454,29 @@
       const rl = await window.storage.get('room-layout');
       if(rl && rl.value) state.roomLayout = JSON.parse(rl.value);
     }catch(e){ state.roomLayout = {}; }
+    try{
+      const sp = await window.storage.get('saved-plan');
+      if(sp && sp.value){
+        const plan = JSON.parse(sp.value);
+        if(plan.goalDate && plan.goalDate >= todayStr()){
+          state.savedPlan = plan;
+        } else {
+          try{ await window.storage.set('saved-plan', JSON.stringify(null)); }catch(e){}
+        }
+      }
+    }catch(e){ state.savedPlan = null; }
     render();
   }
   async function saveUnlockedDecor(){
     try{ await window.storage.set('unlocked-decor', JSON.stringify(state.unlockedDecor)); }catch(e){}
+  }
+  async function savePlan(plan){
+    state.savedPlan = plan;
+    try{ await window.storage.set('saved-plan', JSON.stringify(plan)); }catch(e){}
+  }
+  async function clearSavedPlan(){
+    state.savedPlan = null;
+    try{ await window.storage.set('saved-plan', JSON.stringify(null)); }catch(e){}
   }
   async function saveRoomLayout(){
     try{ await window.storage.set('room-layout', JSON.stringify(state.roomLayout)); }catch(e){}
@@ -487,6 +507,10 @@
     return `${h}:${m}`;
   }
   function nowMinutes(){ const d = new Date(); return d.getHours()*60 + d.getMinutes(); }
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
 
   // --- sound ---
   let audioCtx = null;
@@ -808,10 +832,19 @@
 
   // --- Home ---
   function renderHome(){
+    const plan = state.savedPlan;
+    const planIsToday = plan && plan.goalDate === todayStr();
+    const planCard = plan ? `
+      <button class="mode-card practice" id="goSavedPlan" style="border-color:var(--amber); border-width:2px;">
+        <div class="icon">📌</div>
+        <div class="txt"><b>保存された計画${planIsToday ? '（今日）' : ''}</b><span>${plan.eventName}（${plan.goalDate.split('-')[1]}月${plan.goalDate.split('-')[2]}日 ${plan.goalTime}〜）</span></div>
+      </button>
+    ` : '';
     wizard.innerHTML = `
+      ${planCard}
       <button class="mode-card practice" id="goPractice">
         <div class="icon">🚉</div>
-        <div class="txt"><b>実践モード</b><span>今日の本番の予定を入力して、現在時刻と照らしながら逆算します。</span></div>
+        <div class="txt"><b>実践モード</b><span>今日や明日の予定を入力して、現在時刻と照らしながら逆算します。</span></div>
       </button>
       <button class="mode-card sim" id="goSim">
         <div class="icon">🎲</div>
@@ -823,6 +856,20 @@
       <button class="friend-link" id="goRoom">🏠 部屋を見る（${state.unlockedDecor.length}/${decorPool.length}）</button>
       <button class="friend-link" id="goGallery">📖 アイテム図鑑を見る（全${decorPool.length}種類）</button>
     `;
+    if(plan){
+      document.getElementById('goSavedPlan').addEventListener('click', ()=>{
+        state.eventName = plan.eventName;
+        state.goalDate = plan.goalDate;
+        state.goalTime = plan.goalTime;
+        state.prepMin = plan.prepMin;
+        state.travelMin = plan.travelMin;
+        state.bufferMin = plan.bufferMin;
+        state.doneFlags = [false,false,false];
+        state.alerted = new Set();
+        state.screen = 'p-result';
+        render();
+      });
+    }
     document.getElementById('goPractice').addEventListener('click', ()=>{ state.screen='p-goal'; render(); });
     document.getElementById('goSim').addEventListener('click', ()=>{ state.screen='s-scenario'; state.sim=null; render(); });
     document.getElementById('goFriends').addEventListener('click', ()=>{ state.screen='friends'; render(); });
@@ -1062,28 +1109,35 @@
 
   // --- Practice: goal input ---
   function renderGoal(){
+    if(!state.goalDate) state.goalDate = todayStr();
     wizard.innerHTML = `
       <div class="card">
-        <div class="q-label">今日、絶対に間に合わせたい予定は何ですか？</div>
+        <div class="q-label">いつの、どんな予定に間に合わせたいですか？</div>
+        <label class="field-label">日付</label>
+        <input type="date" id="goalDate" value="${state.goalDate}" min="${todayStr()}" style="margin-bottom:14px;">
         <label class="field-label">予定の名前</label>
         <input type="text" id="eventName" placeholder="例：出勤／登園受け入れ" value="${state.eventName}" style="margin-bottom:14px;">
         <label class="field-label">その時刻までに着いていたい時刻</label>
         <input type="time" id="goalTime" value="${state.goalTime}">
+        <div class="q-hint" style="margin-top:10px;">前日の夜に明日の予定を入力しておけば、翌朝アプリを開いたときに計画が残っています。</div>
         <div class="btn-row">
           <button class="btn btn-ghost" id="back">ホームに戻る</button>
           <button class="btn btn-primary" id="next" disabled>次へ</button>
         </div>
       </div>
     `;
+    const dateEl = document.getElementById('goalDate');
     const nameEl = document.getElementById('eventName');
     const timeEl = document.getElementById('goalTime');
     const nextBtn = document.getElementById('next');
-    function check(){ nextBtn.disabled = !(nameEl.value.trim() && timeEl.value); }
+    function check(){ nextBtn.disabled = !(dateEl.value && nameEl.value.trim() && timeEl.value); }
+    dateEl.addEventListener('input', check);
     nameEl.addEventListener('input', check);
     timeEl.addEventListener('input', check);
     check();
     document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
     nextBtn.addEventListener('click', ()=>{
+      state.goalDate = dateEl.value;
       state.eventName = nameEl.value.trim();
       state.goalTime = timeEl.value;
       state.screen = 'p-prep';
@@ -1131,6 +1185,18 @@
     document.getElementById('next').addEventListener('click', ()=>{
       setVal(valEl.value);
       state.screen = nextScreen;
+      if(nextScreen === 'p-result'){
+        state.doneFlags = [false,false,false];
+        state.alerted = new Set();
+        savePlan({
+          eventName: state.eventName,
+          goalDate: state.goalDate,
+          goalTime: state.goalTime,
+          prepMin: state.prepMin,
+          travelMin: state.travelMin,
+          bufferMin: state.bufferMin,
+        });
+      }
       if((nextScreen === 'p-result' || nextScreen === 's-result') && state.bgmUrl) playBGM();
       render();
     });
@@ -1150,18 +1216,21 @@
 
   function renderPracticeResult(){
     const rows = buildRows(state.eventName, state.goalTime);
+    const isToday = (state.goalDate === todayStr());
     const nowMin = nowMinutes();
-    rows.forEach((r,i)=>{
-      if(!state.doneFlags[i] && r.time <= nowMin && !state.alerted.has(i)){
-        state.alerted.add(i); playAlert(); mascotSayCat('nudgeOverdue');
-      }
-    });
+    if(isToday){
+      rows.forEach((r,i)=>{
+        if(!state.doneFlags[i] && r.time <= nowMin && !state.alerted.has(i)){
+          state.alerted.add(i); playAlert(); mascotSayCat('nudgeOverdue');
+        }
+      });
+    }
     let nextAssigned = false;
     const rowsHtml = rows.map((r,i)=>{
       const done = state.doneFlags[i];
       let cls = 'row', flag = '';
       if(done){ cls += ' manual-done'; flag = '✓ 完了'; }
-      else if(r.time <= nowMin){ cls += ' overdue'; flag = '時刻超過'; }
+      else if(isToday && r.time <= nowMin){ cls += ' overdue'; flag = '時刻超過'; }
       else if(!nextAssigned){ cls += ' next'; flag = '次はこれ'; nextAssigned = true; }
       else { flag = 'この後'; }
       return `<div class="${cls}">
@@ -1171,12 +1240,18 @@
         </div>`;
     }).join('');
 
+    const dateLabel = (() => {
+      const [y,m,d] = state.goalDate.split('-').map(Number);
+      return `${m}月${d}日`;
+    })();
+
     wizard.innerHTML = `
+      ${!isToday ? `<div class="q-hint" style="margin-bottom:10px;">📌 この計画は ${dateLabel} 用に保存されています。当日になると現在時刻と連動します。</div>` : ''}
       <div class="board">
         <div class="board-head">
           <div class="title">逆算スケジュール</div>
           <div class="now-wrap">
-            <div class="now">現在 ${toHHMM(nowMin)}</div>
+            <div class="now">${isToday ? '現在 ' + toHHMM(nowMin) : dateLabel}</div>
             ${state.bgmUrl ? `<button class="sound-toggle ${state.bgmPlaying?'':'off'}" id="bgmBtn">${state.bgmPlaying?'🎵':'🔈'}</button>` : ''}
             <button class="sound-toggle ${state.soundOn?'':'off'}" id="soundBtn">${state.soundOn?'🔊':'🔇'}</button>
           </div>
@@ -1202,6 +1277,7 @@
               const extra = d ? `<br>🎁「${d.name}」をゲット！部屋に飾ろう。` : '';
               mascotSay(pickLine('allDone') + extra, {celebrate:true});
             });
+            clearSavedPlan();
           } else {
             mascotSay(pickLine(rows[idx].time > nowMinutes() ? 'praiseOnTime' : 'praiseOnTime'), {celebrate:true});
           }
@@ -1212,7 +1288,8 @@
     document.getElementById('editBtn').addEventListener('click', ()=>{ state.screen='p-prep'; render(); });
     document.getElementById('restartBtn').addEventListener('click', ()=>{
       stopBGM();
-      state.eventName=''; state.goalTime='';
+      clearSavedPlan();
+      state.eventName=''; state.goalTime=''; state.goalDate='';
       state.doneFlags=[false,false,false]; state.alerted=new Set();
       state.screen='p-goal'; render();
     });
