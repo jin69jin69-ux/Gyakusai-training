@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gyakusan-training-v1';
+const CACHE_NAME = 'gyakusan-training-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -24,6 +24,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Network-first for the app shell (HTML) so updates show up right away.
+  if (event.request.mode === 'navigate' || event.request.url.endsWith('/index.html') || event.request.url.endsWith('/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
+  // Cache-first for static assets (icons, manifest).
   event.respondWith(
     caches.match(event.request).then((cached) => {
       return (
