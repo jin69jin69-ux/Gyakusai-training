@@ -522,114 +522,63 @@
   homeLink.addEventListener('click', ()=>{ state.screen = 'home'; render(); });
 
   // --- persistence: friends list & solved count (personal, not shared) ---
-  async function loadPersisted(){
+  // --- Persistence: real browser localStorage (works on the deployed site) ---
+  function lsGet(key){
     try{
-      const f = await window.storage.get('friends-list');
-      if(f && f.value) state.friends = JSON.parse(f.value);
-    }catch(e){ state.friends = []; }
-    try{
-      const c = await window.storage.get('sim-solved-count');
-      if(c && c.value) state.solvedCount = JSON.parse(c.value);
-    }catch(e){ state.solvedCount = 0; }
-    try{
-      const bl = await window.storage.get('bgm-urls');
-      if(bl && bl.value){
-        state.bgmUrls = JSON.parse(bl.value);
-      } else {
-        const b = await window.storage.get('bgm-url');
-        if(b && b.value){
-          const old = JSON.parse(b.value);
-          if(old) state.bgmUrls = [old];
-        }
-      }
-    }catch(e){ state.bgmUrls = []; }
-    try{
-      const mi = await window.storage.get('mascot-id');
-      if(mi && mi.value && mascotData[mi.value]) state.mascotId = mi.value;
-    }catch(e){}
-    try{
-      const d = await window.storage.get('unlocked-decor');
-      if(d && d.value) state.unlockedDecor = JSON.parse(d.value);
-    }catch(e){ state.unlockedDecor = []; }
-    try{
-      const rl = await window.storage.get('room-layout');
-      if(rl && rl.value) state.roomLayout = JSON.parse(rl.value);
-    }catch(e){ state.roomLayout = {}; }
-    try{
-      const sp = await window.storage.get('saved-plan');
-      if(sp && sp.value){
-        const plan = JSON.parse(sp.value);
-        if(plan.goalDate && plan.goalDate >= todayStr()){
-          state.savedPlan = plan;
-        } else {
-          try{ await window.storage.set('saved-plan', JSON.stringify(null)); }catch(e){}
-        }
-      }
-    }catch(e){ state.savedPlan = null; }
-    try{
-      const u = await window.storage.get('app-users', true);
-      if(u && u.value) state.users = JSON.parse(u.value);
-    }catch(e){ state.users = []; }
-    try{
-      const cu = await window.storage.get('current-user-name');
-      if(cu && cu.value) state.currentUser = JSON.parse(cu.value);
-    }catch(e){ state.currentUser = null; }
+      const v = localStorage.getItem(key);
+      return v === null ? null : JSON.parse(v);
+    }catch(e){ return null; }
+  }
+  function lsSet(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+  }
+
+  function loadPersisted(){
+    const f = lsGet('friends-list'); if(f) state.friends = f;
+    const c = lsGet('sim-solved-count'); if(c !== null) state.solvedCount = c;
+    const bl = lsGet('bgm-urls');
+    if(bl) state.bgmUrls = bl;
+    const mi = lsGet('mascot-id'); if(mi && mascotData[mi]) state.mascotId = mi;
+    const d = lsGet('unlocked-decor'); if(d) state.unlockedDecor = d;
+    const rl = lsGet('room-layout'); if(rl) state.roomLayout = rl;
+    const sp = lsGet('saved-plan');
+    if(sp && sp.goalDate){
+      if(sp.goalDate >= todayStr()) state.savedPlan = sp;
+      else lsSet('saved-plan', null);
+    }
+    const u = lsGet('app-users'); if(u) state.users = u;
+    const cu = lsGet('current-user-name'); if(cu) state.currentUser = cu;
     if(!state.currentUser) state.screen = 'login';
     render();
+    return Promise.resolve();
   }
-  async function saveUsers(){
-    try{ await window.storage.set('app-users', JSON.stringify(state.users), true); }catch(e){}
-  }
-  async function saveCurrentUser(){
-    try{ await window.storage.set('current-user-name', JSON.stringify(state.currentUser)); }catch(e){}
-  }
-  async function logActivity(mode){
+  function saveUsers(){ lsSet('app-users', state.users); }
+  function saveCurrentUser(){ lsSet('current-user-name', state.currentUser); }
+  function logActivity(mode){
     if(!state.currentUser) return;
-    try{
-      const r = await window.storage.get('activity-log', true);
-      let log = (r && r.value) ? JSON.parse(r.value) : [];
-      log.push({ user: state.currentUser, mode, time: new Date().toISOString() });
-      if(log.length > 300) log = log.slice(log.length - 300);
-      await window.storage.set('activity-log', JSON.stringify(log), true);
-    }catch(e){}
+    let log = lsGet('activity-log') || [];
+    log.push({ user: state.currentUser, mode, time: new Date().toISOString() });
+    if(log.length > 300) log = log.slice(log.length - 300);
+    lsSet('activity-log', log);
   }
-  async function fetchActivityLog(){
-    try{
-      const r = await window.storage.get('activity-log', true);
-      return (r && r.value) ? JSON.parse(r.value) : [];
-    }catch(e){ return []; }
+  function fetchActivityLog(){
+    return Promise.resolve(lsGet('activity-log') || []);
   }
-  async function saveUnlockedDecor(){
-    try{ await window.storage.set('unlocked-decor', JSON.stringify(state.unlockedDecor)); }catch(e){}
-  }
-  async function savePlan(plan){
-    state.savedPlan = plan;
-    try{ await window.storage.set('saved-plan', JSON.stringify(plan)); }catch(e){}
-  }
-  async function clearSavedPlan(){
-    state.savedPlan = null;
-    try{ await window.storage.set('saved-plan', JSON.stringify(null)); }catch(e){}
-  }
-  async function saveRoomLayout(){
-    try{ await window.storage.set('room-layout', JSON.stringify(state.roomLayout)); }catch(e){}
-  }
+  function saveUnlockedDecor(){ lsSet('unlocked-decor', state.unlockedDecor); }
+  function savePlan(plan){ state.savedPlan = plan; lsSet('saved-plan', plan); }
+  function clearSavedPlan(){ state.savedPlan = null; lsSet('saved-plan', null); }
+  function saveRoomLayout(){ lsSet('room-layout', state.roomLayout); }
   async function grantDecoration(){
     const remaining = decorPool.filter(d => !state.unlockedDecor.includes(d.id));
     if(remaining.length === 0) return null;
     const d = remaining[Math.floor(Math.random()*remaining.length)];
     state.unlockedDecor.push(d.id);
-    await saveUnlockedDecor();
+    saveUnlockedDecor();
     return d;
   }
-  async function saveBgmUrls(){
-    try{ await window.storage.set('bgm-urls', JSON.stringify(state.bgmUrls)); }catch(e){}
-  }
-  async function saveFriends(){
-    try{ await window.storage.set('friends-list', JSON.stringify(state.friends)); }catch(e){}
-  }
-  async function saveSolvedCount(){
-    try{ await window.storage.set('sim-solved-count', JSON.stringify(state.solvedCount)); }catch(e){}
-  }
+  function saveBgmUrls(){ lsSet('bgm-urls', state.bgmUrls); }
+  function saveFriends(){ lsSet('friends-list', state.friends); }
+  function saveSolvedCount(){ lsSet('sim-solved-count', state.solvedCount); }
 
   function toMinutes(hhmm){ const [h,m] = hhmm.split(':').map(Number); return h*60+m; }
   function toHHMM(totalMin){
@@ -874,16 +823,13 @@
     }
   }
   function mascotSayCat(cat){ const l = pickLine(cat); if(l) mascotSay(l); }
-  async function saveMascotId(){
-    try{ await window.storage.set('mascot-id', state.mascotId); }catch(e){}
-  }
+  function saveMascotId(){ lsSet('mascot-id', state.mascotId); }
   async function greetOnLoad(){
     applyMascotAvatar();
-    let met = false;
-    try{ const m = await window.storage.get('mascot-met-' + state.mascotId); met = !!(m && m.value); }catch(e){ met = false; }
+    const met = !!lsGet('mascot-met-' + state.mascotId);
     if(!met){
       mascotSay(currentMascot().intro);
-      try{ await window.storage.set('mascot-met-' + state.mascotId, 'true'); }catch(e){}
+      lsSet('mascot-met-' + state.mascotId, true);
       return;
     }
     const h = new Date().getHours();
