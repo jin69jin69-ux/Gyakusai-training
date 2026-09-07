@@ -149,6 +149,43 @@
   .gallery-item.locked .emoji{ filter:grayscale(1); }
   .gallery-summary{ text-align:center; font-size:12.5px; color:var(--ink-soft); margin-bottom:14px; }
 
+  /* Login / users */
+  .user-card{
+    display:flex; align-items:center; gap:12px; padding:16px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card); margin-bottom:10px; width:100%; text-align:left; cursor:pointer;
+  }
+  .user-card .avatar-dot{ width:36px; height:36px; border-radius:50%; background:var(--purple); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:0 0 auto; }
+  .user-card b{ font-size:14.5px; }
+  .current-user-note{ text-align:center; font-size:12px; color:var(--ink-soft); margin:-4px 0 14px; }
+  .current-user-note .link{ color:var(--purple); text-decoration:underline; cursor:pointer; }
+
+  /* Mental care */
+  .mental-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:26px 20px; text-align:center;
+  }
+  .mental-line{ font-size:17px; font-weight:700; line-height:1.7; margin-bottom:18px; color:var(--ink); }
+  .mental-icon{ font-size:32px; margin-bottom:10px; }
+
+  /* Bubble game */
+  .bubble-canvas{
+    position:relative; width:100%; height:340px; border-radius:14px; overflow:hidden;
+    background:linear-gradient(180deg,#CFEAFB 0%, #E9F6FC 100%); border:1px solid var(--line);
+  }
+  .bubble{
+    position:absolute; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff, #BEE3F5 70%, #8FCFEE);
+    border:1px solid #9FD4EE; cursor:pointer; touch-action:none;
+    animation-name:bubbleUp; animation-timing-function:linear; animation-fill-mode:forwards;
+  }
+  @keyframes bubbleUp{ from{ transform:translateY(0); opacity:1; } to{ transform:translateY(-360px); opacity:0.7; } }
+  .bubble-score{ text-align:center; font-size:13px; color:var(--ink-soft); margin-top:10px; }
+
+  /* Log */
+  .log-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 4px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .log-row .who{ font-weight:700; }
+  .log-row .mode{ color:var(--ink-soft); }
+  .log-row .when{ color:var(--ink-soft); font-family:'JetBrains Mono', monospace; font-size:11px; }
+  .log-empty{ text-align:center; font-size:12.5px; color:var(--ink-soft); padding:20px 0; }
+
 
   /* Mascot */
   .mascot-bar{ display:flex; align-items:flex-end; gap:12px; margin-bottom:20px; }
@@ -294,7 +331,61 @@
     savedPlan: null,
     unlockedDecor: [],
     roomLayout: {},
+    users: [],
+    currentUser: null,
+    mentalLine: '',
+    bubbleScore: 0,
+    currentGame: null,
+    promptIdx: null,
+    colorRound: null,
   };
+
+  const mentalLines = [
+    '今日もよくがんばったね。',
+    'ひと息つこう。',
+    '完璧じゃなくて大丈夫。',
+    'できたことに目を向けてみよう。',
+    '深呼吸してみよう。ゆっくり、3回。',
+    '誰かに頼っていい日があってもいい。',
+    '今日の自分に、よくやったと言ってあげよう。',
+    '焦らなくて大丈夫。ひとつずつでいい。',
+    '疲れているときは、休むのも仕事のうち。',
+    '小さながんばりも、ちゃんと積み重なってる。',
+    '比べなくていい。昨日の自分とだけ比べよう。',
+    '今この瞬間、ちゃんと座って休めてる？',
+    '甘いものでも飲んで、少し肩の力を抜こう。',
+    'できなかったことより、できたことを数えてみよう。',
+    '今日はもう十分。',
+    '誰かのために頑張ってるあなたを、誰かがちゃんと見てるよ。',
+    '無理はしないでね。',
+    '一歩ずつで大丈夫。',
+    '今日の空、見た？少しだけ外の空気を吸ってみよう。',
+    '「まあいっか」も、時には大事。',
+  ];
+
+  const mentalGames = [
+    { name:'あわポン', engine:'float', emoji:'🫧', bg:'linear-gradient(180deg,#CFEAFB,#E9F6FC)' },
+    { name:'ほしキャッチ', engine:'float', emoji:'⭐', bg:'linear-gradient(180deg,#2E2A4A,#4A4570)' },
+    { name:'はなびら', engine:'float', emoji:'🌸', bg:'linear-gradient(180deg,#FDE6F0,#FFF3F8)' },
+    { name:'ふうせんわり', engine:'float', emoji:'🎈', bg:'linear-gradient(180deg,#CFEAFB,#E4F6FF)' },
+    { name:'ゆきのけしき', engine:'float', emoji:'❄️', bg:'linear-gradient(180deg,#DCEBF7,#EEF6FC)' },
+    { name:'てんとうむしタッチ', engine:'float', emoji:'🐞', bg:'linear-gradient(180deg,#E4F4E1,#F3FAF0)' },
+    { name:'きらきらタッチ', engine:'float', emoji:'✨', bg:'linear-gradient(180deg,#3A2F1A,#5C4A28)' },
+    { name:'しゃぼんだま', engine:'float', emoji:'🔵', bg:'linear-gradient(180deg,#E6E0F8,#F4F0FC)' },
+    { name:'深呼吸ガイド', engine:'breath', color:'#7FB8DB', label1:'すって', label2:'はいて' },
+    { name:'ゆったりタイム', engine:'breath', color:'#8FCB9E', label1:'すいこんで', label2:'ゆるめて' },
+    { name:'いろあそび', engine:'color', palette:['#FDE2E4','#E2ECE9','#DFE7FD','#FFF1E6','#F0E6EF'] },
+    { name:'パステルタッチ', engine:'color', palette:['#FFD6E8','#D6F5FF','#E8FFD6','#FFF3D6','#E0D6FF'] },
+    { name:'らくがきタイム', engine:'doodle', stroke:'#3E7CB8' },
+    { name:'ひかりのペン', engine:'doodle', stroke:'#FF9F1C', dark:true },
+    { name:'きらきらタップ', engine:'burst', colors:['#FFD24D','#FF9F1C','#F49BB8'] },
+    { name:'はなびタップ', engine:'burst', colors:['#8FCFEE','#3EC1B3','#8E7CC3'], bg:'#1A1D24' },
+    { name:'のびのびタイム', engine:'prompt', icon:'🙆', prompts:['両手を上に伸ばして、大きく背伸び。','肩をゆっくり、前に3回まわそう。','首をゆっくり、右に左にかたむけてみよう。','足首をぷらぷら、揺らしてみよう。','大きく伸びをして、ふーっと息を吐こう。','手をぎゅっと握って、パッと開いてみよう。'] },
+    { name:'リラックスカード', engine:'prompt', icon:'🍵', prompts:['肩の力を抜いて、椅子にもたれてみよう。','目を閉じて、5秒だけ静かにしてみよう。','好きな飲み物を思い浮かべてみよう。','窓の外を、少しだけ眺めてみよう。','好きな音楽を1曲、頭の中で流してみよう。','「大丈夫」と、小さくつぶやいてみよう。'] },
+    { name:'のんびりカウント', engine:'counter', label:'タップした数' },
+    { name:'いろさがし', engine:'colorfind', gridSize:16 },
+    { name:'いいことみっけ', engine:'prompt', icon:'🍀', prompts:['今日、誰かに優しくできたことは？','今日食べたもので、美味しかったものは？','今、ちょっと嬉しいことは何かある？','最近、ちょっと笑ったことは？','今日、頑張ったことをひとつ思い出してみよう。','今、そばにあると嬉しいものは？'] },
+  ];
 
   const decorPool = [
     {id:'plant', emoji:'🪴', name:'観葉植物'},
@@ -426,6 +517,7 @@
   const mainTitle = document.getElementById('mainTitle');
   const mainSub = document.getElementById('mainSub');
   let tickTimer = null;
+  let bubbleTimer = null;
 
   homeLink.addEventListener('click', ()=>{ state.screen = 'home'; render(); });
 
@@ -474,7 +566,38 @@
         }
       }
     }catch(e){ state.savedPlan = null; }
+    try{
+      const u = await window.storage.get('app-users', true);
+      if(u && u.value) state.users = JSON.parse(u.value);
+    }catch(e){ state.users = []; }
+    try{
+      const cu = await window.storage.get('current-user-name');
+      if(cu && cu.value) state.currentUser = JSON.parse(cu.value);
+    }catch(e){ state.currentUser = null; }
+    if(!state.currentUser) state.screen = 'login';
     render();
+  }
+  async function saveUsers(){
+    try{ await window.storage.set('app-users', JSON.stringify(state.users), true); }catch(e){}
+  }
+  async function saveCurrentUser(){
+    try{ await window.storage.set('current-user-name', JSON.stringify(state.currentUser)); }catch(e){}
+  }
+  async function logActivity(mode){
+    if(!state.currentUser) return;
+    try{
+      const r = await window.storage.get('activity-log', true);
+      let log = (r && r.value) ? JSON.parse(r.value) : [];
+      log.push({ user: state.currentUser, mode, time: new Date().toISOString() });
+      if(log.length > 300) log = log.slice(log.length - 300);
+      await window.storage.set('activity-log', JSON.stringify(log), true);
+    }catch(e){}
+  }
+  async function fetchActivityLog(){
+    try{
+      const r = await window.storage.get('activity-log', true);
+      return (r && r.value) ? JSON.parse(r.value) : [];
+    }catch(e){ return []; }
   }
   async function saveUnlockedDecor(){
     try{ await window.storage.set('unlocked-decor', JSON.stringify(state.unlockedDecor)); }catch(e){}
@@ -783,11 +906,18 @@
 
   function render(){
     if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    if(bubbleTimer){ clearInterval(bubbleTimer); bubbleTimer = null; }
     const s = state.screen;
     mascotEnter(s);
-    homeLink.style.display = (s === 'home') ? 'none' : 'inline';
+    homeLink.style.display = (s === 'home' || s === 'login') ? 'none' : 'inline';
 
-    if(s === 'home'){
+    if(s === 'login'){
+      eyebrowText.textContent = 'TIME TRAINING · ログイン';
+      mainTitle.textContent = 'あなたは誰ですか？';
+      mainSub.textContent = '登録されている名前を選んでください。';
+      progressEl.innerHTML = '';
+      renderLogin();
+    } else if(s === 'home'){
       eyebrowText.textContent = 'TIME TRAINING';
       mainTitle.textContent = '逆算トレーニング';
       mainSub.textContent = '今日の本番で使うか、ランダムなお題で練習するか選べます。';
@@ -823,6 +953,31 @@
       mainSub.textContent = '集めたアイテムの一覧です。全部で' + decorPool.length + '種類あります。';
       progressEl.innerHTML = '';
       renderGallery();
+    } else if(s === 'users'){
+      eyebrowText.textContent = 'TIME TRAINING · ユーザー管理';
+      mainTitle.textContent = 'ユーザーを管理';
+      mainSub.textContent = 'このアプリを使う人を登録できます。';
+      progressEl.innerHTML = '';
+      renderUsers();
+    } else if(s === 'mental'){
+      eyebrowText.textContent = 'TIME TRAINING · メンタルケア';
+      mainTitle.textContent = 'メンタルケアモード';
+      mainSub.textContent = 'ちょっとひと休み。';
+      progressEl.innerHTML = '';
+      renderMental();
+    } else if(s === 'mental-game'){
+      if(!state.currentGame) state.currentGame = mentalGames[Math.floor(Math.random()*mentalGames.length)];
+      eyebrowText.textContent = 'TIME TRAINING · 気分転換';
+      mainTitle.textContent = state.currentGame.name;
+      mainSub.textContent = '20種類の中からランダムに選ばれました。';
+      progressEl.innerHTML = '';
+      renderMentalGame();
+    } else if(s === 'log'){
+      eyebrowText.textContent = 'TIME TRAINING · 利用履歴';
+      mainTitle.textContent = '利用履歴';
+      mainSub.textContent = '誰が、いつ、どのモードを使ったかの記録です。';
+      progressEl.innerHTML = '';
+      renderLog();
     } else if(s.startsWith('p-')){
       eyebrowText.textContent = 'TIME TRAINING · 実践モード';
       mainTitle.textContent = '実践モード';
@@ -870,6 +1025,7 @@
       </button>
     ` : '';
     wizard.innerHTML = `
+      <div class="current-user-note">${state.currentUser} でログイン中 ・ <span class="link" id="switchUser">切り替える</span></div>
       ${planCard}
       <button class="mode-card practice" id="goPractice">
         <div class="icon">🚉</div>
@@ -879,11 +1035,17 @@
         <div class="icon">🎲</div>
         <div class="txt"><b>シミュレーションモード</b><span>ランダムなお題で逆算の練習。友だちを登録すると、お題に登場します。</span></div>
       </button>
+      <button class="mode-card practice" id="goMental" style="border-color:#BFE3D0;">
+        <div class="icon">🌿</div>
+        <div class="txt"><b>メンタルケアモード</b><span>気持ちを和らげる言葉と、ちょっとした気分転換ゲーム。</span></div>
+      </button>
       <button class="friend-link" id="goFriends">👥 練習相手を管理（${state.friends.length}人登録中）</button>
       <button class="friend-link" id="goBgm">🎵 BGMを設定（${state.bgmUrls.length ? state.bgmUrls.length + "曲登録中" : "未設定"}）</button>
       <button class="friend-link" id="goCharacter">🎭 キャラクターを選ぶ（今：${currentMascot().name}）</button>
       <button class="friend-link" id="goRoom">🏠 部屋を見る（${state.unlockedDecor.length}/${decorPool.length}）</button>
       <button class="friend-link" id="goGallery">📖 アイテム図鑑を見る（全${decorPool.length}種類）</button>
+      <button class="friend-link" id="goUsers">🙍 ユーザーを管理（${state.users.length}人登録中）</button>
+      <button class="friend-link" id="goLog">📋 利用履歴を見る</button>
     `;
     if(plan){
       document.getElementById('goSavedPlan').addEventListener('click', ()=>{
@@ -899,13 +1061,17 @@
         render();
       });
     }
-    document.getElementById('goPractice').addEventListener('click', ()=>{ state.screen='p-goal'; render(); });
-    document.getElementById('goSim').addEventListener('click', ()=>{ state.screen='s-scenario'; state.sim=null; render(); });
+    document.getElementById('switchUser').addEventListener('click', ()=>{ state.screen='login'; render(); });
+    document.getElementById('goPractice').addEventListener('click', ()=>{ logActivity('実践モード'); state.screen='p-goal'; render(); });
+    document.getElementById('goSim').addEventListener('click', ()=>{ logActivity('トレーニングモード'); state.screen='s-scenario'; state.sim=null; render(); });
+    document.getElementById('goMental').addEventListener('click', ()=>{ logActivity('メンタルケアモード'); state.mentalLine=''; state.screen='mental'; render(); });
     document.getElementById('goFriends').addEventListener('click', ()=>{ state.screen='friends'; render(); });
     document.getElementById('goBgm').addEventListener('click', ()=>{ state.screen='bgm'; render(); });
     document.getElementById('goCharacter').addEventListener('click', ()=>{ state.screen='character'; render(); });
     document.getElementById('goRoom').addEventListener('click', ()=>{ state.screen='room'; render(); });
     document.getElementById('goGallery').addEventListener('click', ()=>{ state.screen='gallery'; render(); });
+    document.getElementById('goUsers').addEventListener('click', ()=>{ state.screen='users'; render(); });
+    document.getElementById('goLog').addEventListener('click', ()=>{ state.screen='log'; render(); });
   }
 
   // --- Friends management ---
@@ -1147,6 +1313,403 @@
       <div class="btn-row" style="margin-top:16px;"><button class="btn btn-ghost" id="back">ホームに戻る</button></div>
     `;
     document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- Login / accounts (simple, no password) ---
+  function renderLogin(){
+    if(state.users.length === 0){
+      wizard.innerHTML = `
+        <div class="card">
+          <div class="q-label">まだ誰も登録されていません。</div>
+          <div class="q-hint">最初に、このアプリを使う人の名前を登録してください。</div>
+          <div class="add-friend-row" style="margin-top:14px;">
+            <input type="text" id="newUser" placeholder="名前を入力（例：やまだ）">
+            <button id="addUserBtn">追加</button>
+          </div>
+        </div>
+      `;
+      const input = document.getElementById('newUser');
+      document.getElementById('addUserBtn').addEventListener('click', ()=>{
+        const v = input.value.trim();
+        if(!v) return;
+        state.users.push(v);
+        saveUsers();
+        state.currentUser = v;
+        saveCurrentUser();
+        state.screen = 'home';
+        render();
+      });
+      input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('addUserBtn').click(); });
+      return;
+    }
+    const cardsHtml = state.users.map(u=>`
+      <button class="user-card" data-user="${u}">
+        <div class="avatar-dot">${u.slice(0,1)}</div>
+        <b>${u}</b>
+      </button>
+    `).join('');
+    wizard.innerHTML = `
+      ${cardsHtml}
+      <button class="friend-link" id="addNewUser">＋ 新しい人を登録する</button>
+    `;
+    document.querySelectorAll('.user-card').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        state.currentUser = card.dataset.user;
+        saveCurrentUser();
+        state.screen = 'home';
+        render();
+      });
+    });
+    document.getElementById('addNewUser').addEventListener('click', ()=>{ state.screen='users'; render(); });
+  }
+
+  function renderUsers(){
+    const listHtml = state.users.length
+      ? state.users.map((u,i)=>`
+          <div class="friend-row">
+            <div class="name">${u}${u === state.currentUser ? '（あなた）' : ''}</div>
+            <button data-idx="${i}">削除</button>
+          </div>`).join('')
+      : `<div class="empty-note">まだ登録されていません。</div>`;
+    wizard.innerHTML = `
+      <div class="card">
+        ${listHtml}
+        <div class="add-friend-row">
+          <input type="text" id="newUser2" placeholder="名前を入力">
+          <button id="addUserBtn2">追加</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="back">ホームに戻る</button>
+      </div>
+    `;
+    document.querySelectorAll('.friend-row button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx);
+        const removed = state.users[idx];
+        state.users.splice(idx,1);
+        saveUsers();
+        if(state.currentUser === removed){ state.currentUser = null; saveCurrentUser(); }
+        renderUsers();
+      });
+    });
+    const input2 = document.getElementById('newUser2');
+    document.getElementById('addUserBtn2').addEventListener('click', ()=>{
+      const v = input2.value.trim();
+      if(!v) return;
+      state.users.push(v);
+      saveUsers();
+      renderUsers();
+    });
+    input2.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('addUserBtn2').click(); });
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+  }
+
+  // --- Mental care mode ---
+  function renderMental(){
+    if(!state.mentalLine) state.mentalLine = mentalLines[Math.floor(Math.random()*mentalLines.length)];
+    wizard.innerHTML = `
+      <div class="mental-card">
+        <div class="mental-icon">🌿</div>
+        <div class="mental-line">${state.mentalLine}</div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="another">別の言葉</button>
+          <button class="btn btn-primary" id="toGame">🫧 気分転換ゲームをする</button>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="back">ホームに戻る</button>
+      </div>
+    `;
+    document.getElementById('another').addEventListener('click', ()=>{
+      let next = state.mentalLine;
+      while(next === state.mentalLine && mentalLines.length > 1){
+        next = mentalLines[Math.floor(Math.random()*mentalLines.length)];
+      }
+      state.mentalLine = next;
+      renderMental();
+    });
+    document.getElementById('toGame').addEventListener('click', ()=>{
+      state.currentGame = mentalGames[Math.floor(Math.random()*mentalGames.length)];
+      state.screen='mental-game'; render();
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.mentalLine=''; state.screen='home'; render(); });
+  }
+
+  function renderMentalGame(){
+    const g = state.currentGame;
+    if(g.engine === 'float') return renderFloatGame(g);
+    if(g.engine === 'breath') return renderBreathGame(g);
+    if(g.engine === 'color') return renderColorGame(g);
+    if(g.engine === 'doodle') return renderDoodleGame(g);
+    if(g.engine === 'burst') return renderBurstGame(g);
+    if(g.engine === 'prompt') return renderPromptGame(g);
+    if(g.engine === 'counter') return renderCounterGame(g);
+    if(g.engine === 'colorfind') return renderColorFindGame(g);
+  }
+
+  function gameBackBtn(){
+    return `<div class="btn-row" style="margin-top:14px;"><button class="btn btn-ghost" id="back">メンタルケアに戻る</button></div>`;
+  }
+  function wireBack(){
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='mental'; render(); });
+  }
+
+  // Engine: floating tap-to-pop objects
+  function renderFloatGame(g){
+    state.bubbleScore = 0;
+    wizard.innerHTML = `
+      <div class="bubble-canvas" id="bubbleCanvas" style="background:${g.bg};"></div>
+      <div class="bubble-score" id="bubbleScoreLabel">はじけた数：0</div>
+      ${gameBackBtn()}
+    `;
+    const canvas = document.getElementById('bubbleCanvas');
+    const scoreLabel = document.getElementById('bubbleScoreLabel');
+    function spawnBubble(){
+      if(!canvas.isConnected) return;
+      const size = 22 + Math.random()*26;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.style.background = 'none';
+      bubble.style.border = 'none';
+      bubble.style.display = 'flex';
+      bubble.style.alignItems = 'center';
+      bubble.style.justifyContent = 'center';
+      bubble.style.fontSize = size + 'px';
+      bubble.style.width = size + 'px';
+      bubble.style.height = size + 'px';
+      bubble.textContent = g.emoji;
+      bubble.style.left = (Math.random()*85) + '%';
+      bubble.style.bottom = '-40px';
+      const duration = 5 + Math.random()*3;
+      bubble.style.animationDuration = duration + 's';
+      bubble.addEventListener('pointerdown', ()=>{
+        state.bubbleScore++;
+        scoreLabel.textContent = 'はじけた数：' + state.bubbleScore;
+        playTone([700 + Math.random()*200], 0.12, 0.05);
+        bubble.remove();
+      });
+      bubble.addEventListener('animationend', ()=>{ bubble.remove(); });
+      canvas.appendChild(bubble);
+    }
+    for(let i=0;i<4;i++) setTimeout(spawnBubble, i*300);
+    bubbleTimer = setInterval(spawnBubble, 900);
+    wireBack();
+  }
+
+  // Engine: breathing guide (expanding/contracting circle)
+  function renderBreathGame(g){
+    wizard.innerHTML = `
+      <div class="bubble-canvas" style="display:flex; align-items:center; justify-content:center; background:#F5F3EE;">
+        <div id="breathCircle" style="width:120px; height:120px; border-radius:50%; background:${g.color}; opacity:0.75; transition:transform 4s ease-in-out, opacity 4s ease-in-out; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px;">${g.label1}</div>
+      </div>
+      <div class="room-hint" style="margin-top:10px;">丸の動きに合わせて、ゆっくり呼吸してみましょう。</div>
+      ${gameBackBtn()}
+    `;
+    const circle = document.getElementById('breathCircle');
+    let breatheIn = true;
+    function cycle(){
+      if(!circle.isConnected) return;
+      circle.style.transform = breatheIn ? 'scale(1.5)' : 'scale(1)';
+      circle.textContent = breatheIn ? g.label1 : g.label2;
+      breatheIn = !breatheIn;
+    }
+    cycle();
+    bubbleTimer = setInterval(cycle, 4000);
+    wireBack();
+  }
+
+  // Engine: color tap grid
+  function renderColorGame(g){
+    const tilesHtml = Array.from({length:9}).map((_,i)=>`<div class="room-item" data-i="${i}" style="width:100%; height:64px; border-radius:12px; background:${g.palette[i % g.palette.length]};"></div>`).join('');
+    wizard.innerHTML = `
+      <div class="card">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">${tilesHtml}</div>
+        <div class="room-hint" style="margin-top:14px; text-align:center;">タップすると色が変わります。好きなだけ触ってみてください。</div>
+      </div>
+      ${gameBackBtn()}
+    `;
+    document.querySelectorAll('[data-i]').forEach(tile=>{
+      tile.addEventListener('click', ()=>{
+        tile.style.background = g.palette[Math.floor(Math.random()*g.palette.length)];
+        playTone([500 + Math.random()*300], 0.1, 0.05);
+      });
+    });
+    wireBack();
+  }
+
+  // Engine: doodle canvas (finger-drawn fading trails)
+  function renderDoodleGame(g){
+    wizard.innerHTML = `
+      <div class="bubble-canvas" style="background:${g.dark ? '#1A1D24' : '#FBFAF7'};">
+        <canvas id="doodleCanvas" style="width:100%; height:100%; touch-action:none;"></canvas>
+      </div>
+      <div class="room-hint" style="margin-top:10px;">指でなぞって、自由に描いてみましょう。</div>
+      <div class="btn-row" style="margin-top:10px;"><button class="btn btn-ghost" id="clearDoodle">消す</button></div>
+      ${gameBackBtn()}
+    `;
+    const canvas = document.getElementById('doodleCanvas');
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width; canvas.height = rect.height;
+    const ctx = canvas.getContext('2d');
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = g.stroke;
+    let drawing = false, lastX = 0, lastY = 0;
+    function pos(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    canvas.addEventListener('pointerdown', (e)=>{ drawing = true; const p = pos(e); lastX = p.x; lastY = p.y; });
+    canvas.addEventListener('pointermove', (e)=>{
+      if(!drawing) return;
+      const p = pos(e);
+      ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+      lastX = p.x; lastY = p.y;
+    });
+    canvas.addEventListener('pointerup', ()=>{ drawing = false; });
+    canvas.addEventListener('pointercancel', ()=>{ drawing = false; });
+    document.getElementById('clearDoodle').addEventListener('click', ()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); });
+    wireBack();
+  }
+
+  // Engine: tap-anywhere particle burst
+  function renderBurstGame(g){
+    wizard.innerHTML = `
+      <div class="bubble-canvas" id="burstCanvas" style="background:${g.bg || '#FBFAF7'}; cursor:pointer;"></div>
+      <div class="room-hint" style="margin-top:10px;">画面をタップすると、はじけます。</div>
+      ${gameBackBtn()}
+    `;
+    const canvas = document.getElementById('burstCanvas');
+    canvas.addEventListener('pointerdown', (e)=>{
+      const r = canvas.getBoundingClientRect();
+      const cx = e.clientX - r.left, cy = e.clientY - r.top;
+      playTone([600 + Math.random()*300], 0.1, 0.04);
+      for(let i=0;i<10;i++){
+        const p = document.createElement('div');
+        const angle = (Math.PI*2*i)/10 + Math.random()*0.3;
+        const dist = 40 + Math.random()*40;
+        const size = 6 + Math.random()*6;
+        p.style.position = 'absolute';
+        p.style.left = cx + 'px'; p.style.top = cy + 'px';
+        p.style.width = size+'px'; p.style.height = size+'px';
+        p.style.borderRadius = '50%';
+        p.style.background = g.colors[i % g.colors.length];
+        p.style.transition = 'transform 0.7s ease-out, opacity 0.7s ease-out';
+        p.style.pointerEvents = 'none';
+        canvas.appendChild(p);
+        requestAnimationFrame(()=>{
+          p.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+          p.style.opacity = '0';
+        });
+        setTimeout(()=>p.remove(), 750);
+      }
+    });
+    wireBack();
+  }
+
+  // Engine: cycling prompt cards
+  function renderPromptGame(g){
+    if(state.promptIdx === undefined || state.promptIdx === null) state.promptIdx = Math.floor(Math.random()*g.prompts.length);
+    wizard.innerHTML = `
+      <div class="mental-card">
+        <div class="mental-icon">${g.icon}</div>
+        <div class="mental-line">${g.prompts[state.promptIdx]}</div>
+        <button class="btn btn-primary" id="nextPrompt" style="width:100%;">次へ</button>
+      </div>
+      ${gameBackBtn()}
+    `;
+    document.getElementById('nextPrompt').addEventListener('click', ()=>{
+      let next = state.promptIdx;
+      while(next === state.promptIdx && g.prompts.length > 1){ next = Math.floor(Math.random()*g.prompts.length); }
+      state.promptIdx = next;
+      renderPromptGame(g);
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.promptIdx = null; state.screen='mental'; render(); });
+  }
+
+  // Engine: simple satisfying tap counter
+  function renderCounterGame(g){
+    if(!state.bubbleScore) state.bubbleScore = 0;
+    wizard.innerHTML = `
+      <div class="mental-card">
+        <div class="mental-icon">👆</div>
+        <div class="mental-line" id="counterLabel">${g.label}：${state.bubbleScore}</div>
+        <button class="btn btn-primary" id="tapCounter" style="width:100%;">タップする</button>
+      </div>
+      ${gameBackBtn()}
+    `;
+    document.getElementById('tapCounter').addEventListener('click', ()=>{
+      state.bubbleScore++;
+      document.getElementById('counterLabel').textContent = g.label + '：' + state.bubbleScore;
+      playTone([550 + Math.random()*250], 0.09, 0.04);
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.bubbleScore = 0; state.screen='mental'; render(); });
+  }
+
+  // Engine: find-the-different-colored-tile
+  function generateColorRound(){
+    const hue = Math.floor(Math.random()*360);
+    const sat = 45 + Math.floor(Math.random()*15);
+    const lightBase = 55 + Math.floor(Math.random()*15);
+    const delta = 7 + Math.floor(Math.random()*10); // perceptible but gentle difference
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    return {
+      hue, sat, lightBase,
+      lightOdd: Math.max(20, Math.min(85, lightBase + dir*delta)),
+      oddIndex: Math.floor(Math.random()*16),
+    };
+  }
+  function renderColorFindGame(g){
+    if(!state.bubbleScore) state.bubbleScore = 0;
+    if(!state.colorRound) state.colorRound = generateColorRound();
+    const r = state.colorRound;
+    const tilesHtml = Array.from({length:g.gridSize}).map((_,i)=>{
+      const light = (i === r.oddIndex) ? r.lightOdd : r.lightBase;
+      return `<div class="room-item color-tile" data-i="${i}" style="width:100%; height:56px; border-radius:10px; background:hsl(${r.hue},${r.sat}%,${light}%);"></div>`;
+    }).join('');
+    wizard.innerHTML = `
+      <div class="card">
+        <div class="room-hint" style="text-align:center; margin-bottom:12px;">1枚だけ、少しだけ違う色があります。見つけてタップしてみましょう。</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">${tilesHtml}</div>
+      </div>
+      <div class="bubble-score">見つけた数：${state.bubbleScore}</div>
+      ${gameBackBtn()}
+    `;
+    document.querySelectorAll('.color-tile').forEach(tile=>{
+      tile.addEventListener('click', ()=>{
+        const idx = Number(tile.dataset.i);
+        if(idx === r.oddIndex){
+          state.bubbleScore++;
+          playTone([700, 900], 0.12, 0.08);
+          state.colorRound = generateColorRound();
+          renderColorFindGame(g);
+        } else {
+          tile.style.transition = 'transform 0.15s ease';
+          tile.style.transform = 'scale(0.94)';
+          setTimeout(()=>{ tile.style.transform = 'scale(1)'; }, 150);
+        }
+      });
+    });
+    document.getElementById('back').addEventListener('click', ()=>{ state.bubbleScore = 0; state.colorRound = null; state.screen='mental'; render(); });
+  }
+
+  // --- Activity log ---
+  async function renderLog(){
+    wizard.innerHTML = `<div class="log-empty">読み込み中…</div><div class="btn-row" style="margin-top:14px;"><button class="btn btn-ghost" id="back">ホームに戻る</button></div>`;
+    document.getElementById('back').addEventListener('click', ()=>{ state.screen='home'; render(); });
+    const log = await fetchActivityLog();
+    if(state.screen !== 'log') return;
+    const recent = log.slice(-60).reverse();
+    const rowsHtml = recent.length
+      ? recent.map(entry=>{
+          const d = new Date(entry.time);
+          const when = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          return `<div class="log-row"><span class="who">${entry.user}</span><span class="mode">${entry.mode}</span><span class="when">${when}</span></div>`;
+        }).join('')
+      : `<div class="log-empty">まだ記録がありません。</div>`;
+    wizard.innerHTML = `
+      <div class="card">${rowsHtml}</div>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="back2">ホームに戻る</button>
+      </div>
+    `;
+    document.getElementById('back2').addEventListener('click', ()=>{ state.screen='home'; render(); });
   }
 
   // --- Practice: goal input ---
